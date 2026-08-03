@@ -1,0 +1,129 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Routing
+@using ybaso.Blazor.Server.Shared
+
+@inject AuthenticationStateProvider AuthStateProvider
+
+<aside class="doctor-sidebar">
+
+    <div class="doctor-brand natcare-sidebar-brand">
+        <img class="natcare-sidebar-logo"
+             src="images/natcare-logo.png"
+             alt="NATCare - Y học cổ truyền" />
+
+        <div class="natcare-workspace-label">
+            Doctor Workspace
+        </div>
+    </div>
+
+    <nav class="doctor-menu">
+
+        <div class="doctor-menu-group">
+            <button class="doctor-menu-group-title"
+                    type="button">
+                <span>📁</span>
+                <span>01. Tiếp nhận &amp; Khám</span>
+            </button>
+
+            <NavLink href="/doctor"
+                     Match="NavLinkMatch.All"
+                     class="doctor-menu-item">
+
+                <span class="doctor-menu-icon">🏠</span>
+                <span>Trang chủ</span>
+            </NavLink>
+
+            <NavLink href="/doctor/patients"
+                     class="doctor-menu-item">
+
+                <span class="doctor-menu-icon">👥</span>
+                <span>Bệnh nhân</span>
+            </NavLink>
+
+            <NavLink href="/doctor/exams"
+                     class="doctor-menu-item">
+
+                <span class="doctor-menu-icon">🩺</span>
+                <span>Ca khám</span>
+            </NavLink>
+        </div>
+
+        <div class="doctor-menu-group">
+            <button class="doctor-menu-group-title"
+                    type="button">
+
+                <span>📁</span>
+                <span>02. Phân tích &amp; Chẩn đoán</span>
+            </button>
+
+            <NavLink href="/doctor/diseases"
+                     class="doctor-menu-item">
+
+                <span class="doctor-menu-icon">📘</span>
+                <span>Bệnh danh</span>
+            </NavLink>
+
+            <NavLink href="/doctor/acupoints"
+                     class="doctor-menu-item">
+
+                <span class="doctor-menu-icon">📍</span>
+                <span>Danh mục huyệt</span>
+            </NavLink>
+
+            <NavLink href="/doctor/diagnosis-rules"
+                     class="doctor-menu-item">
+
+                <span class="doctor-menu-icon">🧠</span>
+                <span>Điều kiện chẩn đoán</span>
+            </NavLink>
+
+            <NavLink href="/doctor/treatment-plans"
+                     class="doctor-menu-item">
+
+                <span class="doctor-menu-icon">🌿</span>
+                <span>Phác đồ điều trị</span>
+            </NavLink>
+        </div>
+
+    </nav>
+
+    <div class="doctor-sidebar-footer">
+
+        <div class="doctor-user-box">
+
+            <div class="doctor-avatar">
+                BS
+            </div>
+
+            <div class="doctor-user-info">
+                <div class="doctor-user-name">
+                    @CurrentUserName
+                </div>
+
+                <div class="doctor-user-role">
+                    Bác sĩ
+                </div>
+            </div>
+
+        </div>
+
+        <MediFlowLogoutButton />
+
+    </div>
+
+</aside>
+
+@code {
+    private string CurrentUserName = "Bác sĩ";
+
+    protected override async Task OnInitializedAsync()
+    {
+        AuthenticationState authenticationState =
+            await AuthStateProvider
+                .GetAuthenticationStateAsync();
+
+        CurrentUserName =
+            authenticationState.User.Identity?.Name
+            ?? "Bác sĩ";
+    }
+}

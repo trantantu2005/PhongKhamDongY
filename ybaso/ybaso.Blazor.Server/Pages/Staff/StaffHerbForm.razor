@@ -1,0 +1,590 @@
+﻿@page "/staff/herbs/new"
+@page "/staff/herbs/view/{Oid:int}"
+@page "/staff/herbs/edit/{Oid:int}"
+
+@using System.Linq
+@using DevExpress.ExpressApp
+@using ybaso.Module.BusinessObjects
+@implements IDisposable
+
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject NavigationManager Navigation
+
+<div class="staff-page">
+    <StaffSidebar ActiveMenu="herbs" />
+
+    <main class="staff-main">
+        <header class="mf-topbar">
+            <div>
+                <h1>@PageTitle</h1>
+                <p>@PageDescription</p>
+            </div>
+
+            <div class="mf-actions">
+                <button class="mf-btn mf-btn-outline"
+                        type="button"
+                        @onclick="GoBack">
+                    ← Quay lại
+                </button>
+
+                @if (IsViewMode)
+                {
+                    <button class="mf-btn mf-btn-primary"
+                            type="button"
+                            @onclick="GoToEdit">
+                        Cập nhật dược liệu
+                    </button>
+                }
+                else
+                {
+                    <button class="mf-btn mf-btn-primary"
+                            type="button"
+                            @onclick="SaveHerb">
+                        💾 Lưu dược liệu
+                    </button>
+                }
+            </div>
+        </header>
+
+        @if (!string.IsNullOrWhiteSpace(Message))
+        {
+            <div class="@MessageClass">
+                @Message
+            </div>
+        }
+
+        @if (DuocLieuItem != null)
+        {
+            <section class="staff-form-card">
+                <div class="staff-form-header">
+                    <div class="staff-form-avatar">
+                        🌿
+                    </div>
+
+                    <div>
+                        <h2>@PreviewName</h2>
+                        <p>@PreviewSubtitle</p>
+                    </div>
+                </div>
+
+                <div class="staff-form-grid">
+                    <div class="staff-form-group">
+                        <label>Mã dược liệu</label>
+
+                        <input class="staff-form-control"
+                               placeholder="VD: DL001"
+                               disabled="@IsViewMode"
+                               @bind="MaDuocLieu" />
+                    </div>
+
+                    <div class="staff-form-group">
+                        <label>
+                            Tên dược liệu
+                            <span class="required">*</span>
+                        </label>
+
+                        <input class="staff-form-control"
+                               placeholder="VD: Xả, Quế, Gừng..."
+                               disabled="@IsViewMode"
+                               @bind="TenDuocLieu" />
+                    </div>
+
+                    <div class="staff-form-group">
+                        <label>
+                            Đơn vị tính
+                            <span class="required">*</span>
+                        </label>
+
+                        <select class="staff-form-control"
+                                disabled="@IsViewMode"
+                                value="@SelectedDvtOid"
+                                @onchange="OnDvtChanged">
+                            <option value="0">
+                                -- Chọn đơn vị tính --
+                            </option>
+
+                            @foreach (var dvt in DanhSachDvt)
+                            {
+                                <option value="@dvt.Oid">
+                                    @dvt.TenDvt
+                                </option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="staff-form-group">
+                        <label>Số lượng tồn</label>
+
+                        <input class="staff-form-control"
+                               type="number"
+                               min="0"
+                               step="1"
+                               disabled="@IsViewMode"
+                               @bind="SoLuongTon" />
+                    </div>
+
+                    <div class="staff-form-group">
+                        <label>Tồn tối thiểu</label>
+
+                        <input class="staff-form-control"
+                               type="number"
+                               min="0"
+                               step="1"
+                               disabled="@IsViewMode"
+                               @bind="TonToiThieu" />
+                    </div>
+
+                    <div class="staff-form-group">
+                        <label>Giá nhập gần nhất</label>
+
+                        <input class="staff-form-control"
+                               type="number"
+                               min="0"
+                               step="1000"
+                               disabled="@IsViewMode"
+                               @bind="GiaNhapGanNhat" />
+                    </div>
+
+                    <div class="staff-form-group">
+                        <label>Trạng thái sử dụng</label>
+
+                        <select class="staff-form-control"
+                                disabled="@IsViewMode"
+                                @bind="SuDungValue">
+                            <option value="true">
+                                Đang dùng
+                            </option>
+
+                            <option value="false">
+                                Ngừng dùng
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="staff-form-group">
+                        <label>Trạng thái kho</label>
+
+                        <input class="staff-form-control"
+                               value="@StockStatus"
+                               disabled />
+                    </div>
+
+                    <div class="staff-form-group full">
+                        <label>Mô tả</label>
+
+                        <textarea class="staff-form-control"
+                                  placeholder="Nhập mô tả về dược liệu..."
+                                  disabled="@IsViewMode"
+                                  @bind="MoTa">
+                        </textarea>
+                    </div>
+                </div>
+
+                <div class="staff-form-footer">
+                    <button class="mf-btn mf-btn-outline"
+                            type="button"
+                            @onclick="GoBack">
+                        @(IsViewMode ? "Quay lại" : "Hủy")
+                    </button>
+
+                    @if (IsViewMode)
+                    {
+                        <button class="mf-btn mf-btn-primary"
+                                type="button"
+                                @onclick="GoToEdit">
+                            Cập nhật
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="mf-btn mf-btn-primary"
+                                type="button"
+                                @onclick="SaveHerb">
+                            Lưu dược liệu
+                        </button>
+                    }
+                </div>
+            </section>
+        }
+    </main>
+</div>
+
+@code {
+    [Parameter]
+    public int Oid { get; set; }
+
+    private IObjectSpace objectSpace;
+    private DuocLieu DuocLieuItem;
+
+    private List<ListDvt> DanhSachDvt = new();
+
+    private string Message = string.Empty;
+    private string MessageClass = "mf-alert mf-alert-success";
+
+    private string MaDuocLieu = string.Empty;
+    private string TenDuocLieu = string.Empty;
+    private int SelectedDvtOid;
+
+    private decimal SoLuongTon;
+    private decimal TonToiThieu;
+    private decimal GiaNhapGanNhat;
+
+    private string SuDungValue = "true";
+    private string MoTa = string.Empty;
+
+    private bool IsViewMode =>
+        Oid > 0 &&
+        Navigation.Uri.Contains(
+            "/view/",
+            StringComparison.OrdinalIgnoreCase
+        );
+
+    private bool IsEditMode =>
+        Oid > 0 && !IsViewMode;
+
+    private bool IsCreateMode =>
+        Oid <= 0;
+
+    private string PageTitle
+    {
+        get
+        {
+            if (IsViewMode)
+                return "Thông tin dược liệu";
+
+            if (IsEditMode)
+                return "Cập nhật dược liệu";
+
+            return "Thêm dược liệu";
+        }
+    }
+
+    private string PageDescription
+    {
+        get
+        {
+            if (IsViewMode)
+            {
+                return
+                    "Xem đầy đủ thông tin của dược liệu.";
+            }
+
+            if (IsEditMode)
+            {
+                return
+                    "Cập nhật thông tin danh mục dược liệu.";
+            }
+
+            return
+                "Thêm một dược liệu mới vào danh mục kho dược.";
+        }
+    }
+
+    private string PreviewName =>
+        string.IsNullOrWhiteSpace(TenDuocLieu)
+            ? "Dược liệu mới"
+            : TenDuocLieu;
+
+    private string PreviewSubtitle
+    {
+        get
+        {
+            string donViTinh =
+                DanhSachDvt
+                    .FirstOrDefault(
+                        x => x.Oid == SelectedDvtOid
+                    )
+                    ?.TenDvt ?? "Chưa chọn đơn vị";
+
+            string trangThai =
+                SuDungValue == "true"
+                    ? "Đang dùng"
+                    : "Ngừng dùng";
+
+            return
+                $"{FormatNumber(SoLuongTon)} {donViTinh} tồn kho" +
+                $" • {FormatMoney(GiaNhapGanNhat)}" +
+                $" • {trangThai}";
+        }
+    }
+
+    private string StockStatus
+    {
+        get
+        {
+            if (SoLuongTon <= 0)
+                return "Hết hàng";
+
+            if (SoLuongTon <= TonToiThieu)
+                return "Sắp hết";
+
+            return "Còn hàng";
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        objectSpace =
+            ObjectSpaceFactory.CreateObjectSpace(
+                typeof(DuocLieu)
+            );
+
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        DanhSachDvt =
+            objectSpace
+                .GetObjects<ListDvt>()
+                .OrderBy(x => x.TenDvt)
+                .ToList();
+
+        if (Oid > 0)
+        {
+            DuocLieuItem =
+                objectSpace.GetObjectByKey<DuocLieu>(Oid);
+
+            if (DuocLieuItem == null)
+            {
+                MessageClass = "mf-alert mf-alert-danger";
+                Message = "Không tìm thấy dược liệu.";
+
+                return;
+            }
+
+            MaDuocLieu =
+                DuocLieuItem.MaDuocLieu ?? string.Empty;
+
+            TenDuocLieu =
+                DuocLieuItem.TenDuocLieu ?? string.Empty;
+
+            SelectedDvtOid =
+                DuocLieuItem.DonViTinh?.Oid ?? 0;
+
+            SoLuongTon =
+                DuocLieuItem.SoLuongTon;
+
+            TonToiThieu =
+                DuocLieuItem.TonToiThieu;
+
+            GiaNhapGanNhat =
+                DuocLieuItem.GiaNhapGanNhat;
+
+            SuDungValue =
+                DuocLieuItem.SuDung
+                    ? "true"
+                    : "false";
+
+            MoTa =
+                DuocLieuItem.MoTa ?? string.Empty;
+        }
+        else
+        {
+            DuocLieuItem =
+                objectSpace.CreateObject<DuocLieu>();
+
+            MaDuocLieu = string.Empty;
+            TenDuocLieu = string.Empty;
+            SelectedDvtOid = 0;
+
+            SoLuongTon = 0;
+            TonToiThieu = 0;
+            GiaNhapGanNhat = 0;
+
+            SuDungValue = "true";
+            MoTa = string.Empty;
+        }
+    }
+
+    private void OnDvtChanged(ChangeEventArgs e)
+    {
+        int.TryParse(
+            e.Value?.ToString(),
+            out SelectedDvtOid
+        );
+    }
+
+    private bool ValidateForm()
+    {
+        Message = string.Empty;
+
+        if (DuocLieuItem == null)
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Không có đối tượng dược liệu để lưu.";
+
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(TenDuocLieu))
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Vui lòng nhập tên dược liệu.";
+
+            return false;
+        }
+
+        if (SelectedDvtOid <= 0)
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Vui lòng chọn đơn vị tính.";
+
+            return false;
+        }
+
+        if (SoLuongTon < 0)
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Số lượng tồn không được nhỏ hơn 0.";
+
+            return false;
+        }
+
+        if (TonToiThieu < 0)
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Tồn tối thiểu không được nhỏ hơn 0.";
+
+            return false;
+        }
+
+        if (GiaNhapGanNhat < 0)
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Giá nhập không được nhỏ hơn 0.";
+
+            return false;
+        }
+
+        string normalizedCode =
+            MaDuocLieu?.Trim().ToLowerInvariant()
+            ?? string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(normalizedCode))
+        {
+            bool trungMa =
+                objectSpace
+                    .GetObjects<DuocLieu>()
+                    .ToList()
+                    .Any(x =>
+                        x.Oid != Oid &&
+                        !string.IsNullOrWhiteSpace(
+                            x.MaDuocLieu
+                        ) &&
+                        x.MaDuocLieu
+                            .Trim()
+                            .ToLowerInvariant() ==
+                        normalizedCode
+                    );
+
+            if (trungMa)
+            {
+                MessageClass = "mf-alert mf-alert-danger";
+
+                Message =
+                    $"Mã dược liệu \"{MaDuocLieu.Trim()}\" " +
+                    "đã tồn tại.";
+
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void SaveHerb()
+    {
+        if (IsViewMode)
+            return;
+
+        try
+        {
+            if (!ValidateForm())
+                return;
+
+            ListDvt donViTinh =
+                objectSpace.GetObjectByKey<ListDvt>(
+                    SelectedDvtOid
+                );
+
+            if (donViTinh == null)
+            {
+                MessageClass = "mf-alert mf-alert-danger";
+                Message = "Đơn vị tính không tồn tại.";
+
+                return;
+            }
+
+            DuocLieuItem.MaDuocLieu =
+                string.IsNullOrWhiteSpace(MaDuocLieu)
+                    ? null
+                    : MaDuocLieu.Trim();
+
+            DuocLieuItem.TenDuocLieu =
+                TenDuocLieu.Trim();
+
+            DuocLieuItem.DonViTinh =
+                donViTinh;
+
+            DuocLieuItem.SoLuongTon =
+                SoLuongTon;
+
+            DuocLieuItem.TonToiThieu =
+                TonToiThieu;
+
+            DuocLieuItem.GiaNhapGanNhat =
+                GiaNhapGanNhat;
+
+            DuocLieuItem.SuDung =
+                SuDungValue == "true";
+
+            DuocLieuItem.MoTa =
+                string.IsNullOrWhiteSpace(MoTa)
+                    ? null
+                    : MoTa.Trim();
+
+            objectSpace.CommitChanges();
+
+            Navigation.NavigateTo("/staff/herbs");
+        }
+        catch (Exception ex)
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+
+            Message =
+                "Không thể lưu dược liệu: " +
+                ex.Message;
+        }
+    }
+
+    private void GoToEdit()
+    {
+        if (Oid <= 0)
+            return;
+
+        Navigation.NavigateTo(
+            $"/staff/herbs/edit/{Oid}"
+        );
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/staff/herbs");
+    }
+
+    private string FormatMoney(decimal value)
+    {
+        return value.ToString("n0") + " đ";
+    }
+
+    private string FormatNumber(decimal value)
+    {
+        return value.ToString("n0");
+    }
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+}

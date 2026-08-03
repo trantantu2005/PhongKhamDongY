@@ -1,0 +1,173 @@
+﻿@page "/role-redirect"
+
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+
+@attribute [AllowAnonymous]
+
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<PageTitle>Đang chuyển hướng | MediFlow</PageTitle>
+
+<div class="role-redirect-page">
+    <div class="role-redirect-card">
+        <div class="role-redirect-logo">+</div>
+
+        <h2>MediFlow</h2>
+
+        <p>@StatusMessage</p>
+
+        @if (string.IsNullOrWhiteSpace(ErrorMessage))
+        {
+            <div class="role-redirect-spinner"></div>
+        }
+        else
+        {
+            <div class="role-redirect-error">
+                <strong>Chi tiết lỗi:</strong>
+                <pre>@ErrorMessage</pre>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private bool _hasProcessed;
+
+    private string StatusMessage =
+        "Đang kiểm tra thông tin đăng nhập...";
+
+    private string ErrorMessage = string.Empty;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _hasProcessed)
+        {
+            return;
+        }
+
+        _hasProcessed = true;
+
+        try
+        {
+            AuthenticationState authenticationState =
+                await AuthStateProvider.GetAuthenticationStateAsync();
+
+            ClaimsPrincipal user = authenticationState.User;
+
+            if (user.Identity?.IsAuthenticated != true)
+            {
+                Navigation.NavigateTo(
+                    "/LoginPage?ReturnUrl=%2Frole-redirect",
+                    forceLoad: true
+                );
+
+                return;
+            }
+
+            StatusMessage =
+                $"Xin chào {user.Identity.Name}. " +
+                "Đang mở giao diện phù hợp...";
+
+            string targetUrl = GetTargetUrlByRole(user);
+
+            if (string.IsNullOrWhiteSpace(targetUrl))
+            {
+                string roles = string.Join(
+                    ", ",
+                    user.Claims
+                        .Where(claim =>
+                            claim.Type == ClaimTypes.Role ||
+                            claim.Type.EndsWith("/role"))
+                        .Select(claim => claim.Value)
+                        .Distinct()
+                );
+
+                StatusMessage =
+                    "Tài khoản đã đăng nhập nhưng chưa xác định " +
+                    "được giao diện theo vai trò.";
+
+                ErrorMessage =
+                    string.IsNullOrWhiteSpace(roles)
+                        ? "Tài khoản hiện không có Role Claim."
+                        : $"Các Role Claim tìm thấy: {roles}";
+
+                await InvokeAsync(StateHasChanged);
+                return;
+            }
+
+            Navigation.NavigateTo(
+                targetUrl,
+                forceLoad: false
+            );
+        }
+        catch (Exception exception)
+        {
+            StatusMessage =
+                "Không thể chuyển đến giao diện người dùng.";
+
+            ErrorMessage = exception.ToString();
+
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private static string GetTargetUrlByRole(
+        ClaimsPrincipal user)
+    {
+        if (IsInAnyRole(
+            user,
+            "Admin",
+            "Administrator",
+            "Administrators",
+            "QuanTri",
+            "Quản trị"))
+        {
+            return "/";
+        }
+
+        if (IsInAnyRole(
+            user,
+            "BacSi",
+            "Bacsi",
+            "Doctor",
+            "Doctors",
+            "Bác sĩ"))
+        {
+            return "/doctor";
+        }
+
+        if (IsInAnyRole(
+            user,
+            "NhanVien",
+            "Nhanvien",
+            "Staff",
+            "Employees",
+            "Nhân viên"))
+        {
+            return "/staff";
+        }
+
+        if (IsInAnyRole(
+            user,
+            "BenhNhan",
+            "Benhnhan",
+            "Patient",
+            "Patients",
+            "Bệnh nhân"))
+        {
+            return "/patient";
+        }
+
+        return string.Empty;
+    }
+
+    private static bool IsInAnyRole(
+        ClaimsPrincipal user,
+        params string[] roleNames)
+    {
+        return roleNames.Any(user.IsInRole);
+    }
+}

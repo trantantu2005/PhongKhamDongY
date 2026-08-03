@@ -1,0 +1,319 @@
+﻿@page "/doctor"
+
+@using System
+@using System.Collections.Generic
+@using System.Linq
+@using DevExpress.ExpressApp
+@using ybaso.Module.BusinessObjects
+
+@implements IDisposable
+
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject NavigationManager Navigation
+
+<div class="doctor-page">
+
+    <DoctorSidebar />
+
+    <main class="doctor-main">
+
+        <header class="mf-topbar">
+
+            <div>
+                <h1>Không gian làm việc bác sĩ</h1>
+
+                <p>
+                    Quản lý bệnh nhân, ca khám và xem dữ liệu
+                    phân tích chẩn đoán.
+                </p>
+            </div>
+
+            <div class="mf-actions">
+                <button class="mf-btn mf-btn-primary"
+                        type="button"
+                        @onclick="CreateExam">
+                    + Tạo ca khám
+                </button>
+            </div>
+
+        </header>
+
+        <section class="doctor-stats">
+
+            <div class="doctor-stat-card">
+                <div class="doctor-stat-icon blue">
+                    👥
+                </div>
+
+                <div>
+                    <p>Bệnh nhân</p>
+                    <h3>@TongBenhNhan</h3>
+                </div>
+            </div>
+
+            <div class="doctor-stat-card">
+                <div class="doctor-stat-icon orange">
+                    🩺
+                </div>
+
+                <div>
+                    <p>Ca khám</p>
+                    <h3>@TongCaKham</h3>
+                </div>
+            </div>
+
+            <div class="doctor-stat-card">
+                <div class="doctor-stat-icon green">
+                    ✅
+                </div>
+
+                <div>
+                    <p>Đã khám</p>
+                    <h3>@CaDaKham</h3>
+                </div>
+            </div>
+
+            <div class="doctor-stat-card">
+                <div class="doctor-stat-icon purple">
+                    ⏳
+                </div>
+
+                <div>
+                    <p>Chờ khám</p>
+                    <h3>@CaChoKham</h3>
+                </div>
+            </div>
+
+        </section>
+
+        <section class="mf-card">
+
+            <div class="mf-card-head">
+
+                <div>
+                    <h2>Ca khám gần đây</h2>
+
+                    <p>
+                        Danh sách ca khám mới nhất trong hệ thống.
+                    </p>
+                </div>
+
+                <button class="mf-btn mf-btn-outline"
+                        type="button"
+                        @onclick="GoExams">
+                    Xem tất cả
+                </button>
+
+            </div>
+
+            <div class="mf-table-wrapper">
+
+                <table class="mf-table">
+
+                    <thead>
+                        <tr>
+                            <th>Ca khám</th>
+                            <th>Bệnh nhân</th>
+                            <th>Ngày khám</th>
+                            <th>Trạng thái</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @foreach (
+                            Cakham item in
+                            DanhSachCaKham.Take(8))
+                        {
+                            <tr>
+                                <td>
+                                    @GetTenCaKham(item)
+                                </td>
+
+                                <td>
+                                    @(item.BenhNhan?.HoTen
+                                        ?? "Chưa chọn")
+                                </td>
+
+                                <td>
+                                    @item.NgayCT.ToString(
+                                        "dd/MM/yyyy HH:mm")
+                                </td>
+
+                                <td>
+                                    <span class="@GetStatusClass(item.TrangThai)">
+                                        @item.TrangThai
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <button class="doctor-table-btn"
+                                            type="button"
+                                            @onclick="() => OpenExam(item.Oid)">
+                                        Vào khám
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+
+                </table>
+
+            </div>
+
+            @if (!DanhSachCaKham.Any())
+            {
+                <div class="mf-empty">
+                    Chưa có ca khám.
+                </div>
+            }
+
+        </section>
+
+    </main>
+
+</div>
+
+@code {
+    private IObjectSpace objectSpace = null!;
+
+    private List<Benhnhan> DanhSachBenhNhan = new();
+
+    private List<Cakham> DanhSachCaKham = new();
+
+    private int TongBenhNhan =>
+        DanhSachBenhNhan.Count;
+
+    private int TongCaKham =>
+        DanhSachCaKham.Count;
+
+    private int CaDaKham =>
+        DanhSachCaKham.Count(
+            x => x.TrangThai ==
+                 TrangThaiCaKham.DaKham
+        );
+
+    private int CaChoKham =>
+        DanhSachCaKham.Count(
+            x => x.TrangThai ==
+                 TrangThaiCaKham.ChoKham
+        );
+
+    protected override void OnInitialized()
+    {
+        objectSpace =
+            ObjectSpaceFactory.CreateObjectSpace(
+                typeof(Cakham)
+            );
+
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        DanhSachBenhNhan =
+            objectSpace
+                .GetObjects<Benhnhan>()
+                .OrderBy(x => x.Ten)
+                .ToList();
+
+        DanhSachCaKham =
+            objectSpace
+                .GetObjects<Cakham>()
+                .OrderByDescending(x => x.NgayCT)
+                .ToList();
+    }
+
+    private void CreateExam()
+    {
+        Cakham caKham =
+            objectSpace.CreateObject<Cakham>();
+
+        caKham.NgayCT =
+            DateTime.Now;
+
+        caKham.TrangThai =
+            TrangThaiCaKham.ChoKham;
+
+        caKham.LoaiCakham =
+            LoaiCaKham.TrucTiep;
+
+        caKham.LoaiLuotKham =
+            LoaiLuotKham.BenhNhanMoi;
+
+        caKham.NhietDoMoiTruong =
+            26.3;
+
+        objectSpace.CommitChanges();
+
+        Navigation.NavigateTo(
+            $"/doctor/exams/{caKham.Oid}"
+        );
+    }
+
+    private void OpenExam(int oid)
+    {
+        Navigation.NavigateTo(
+            $"/doctor/exams/{oid}"
+        );
+    }
+
+    private string GetTenCaKham(
+        Cakham item)
+    {
+        if (item == null)
+        {
+            return string.Empty;
+        }
+
+        if (!string.IsNullOrWhiteSpace(
+                item.TenCaKham))
+        {
+            return item.TenCaKham;
+        }
+
+        string tenBenhNhan =
+            item.BenhNhan?.HoTen
+            ?? "Chưa chọn bệnh nhân";
+
+        return
+            $"{tenBenhNhan} - " +
+            $"{item.NgayCT:dd/MM/yyyy HH:mm}";
+    }
+
+    private static string GetStatusClass(
+        TrangThaiCaKham trangThai)
+    {
+        if (trangThai ==
+            TrangThaiCaKham.ChoKham)
+        {
+            return "doctor-status warning";
+        }
+
+        if (trangThai ==
+            TrangThaiCaKham.DangKham)
+        {
+            return "doctor-status info";
+        }
+
+        if (trangThai ==
+            TrangThaiCaKham.DaKham)
+        {
+            return "doctor-status success";
+        }
+
+        return "doctor-status danger";
+    }
+
+    private void GoExams()
+    {
+        Navigation.NavigateTo(
+            "/doctor/exams"
+        );
+    }
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+}

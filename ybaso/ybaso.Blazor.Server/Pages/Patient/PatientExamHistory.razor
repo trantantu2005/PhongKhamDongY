@@ -1,0 +1,915 @@
+﻿@page "/patient/exams"
+
+@using System.Linq
+@using DevExpress.ExpressApp
+@using Microsoft.AspNetCore.Authorization
+@using ybaso.Blazor.Server.Services
+@using ybaso.Module.BusinessObjects
+@implements IDisposable
+
+@attribute [Authorize(Roles = "BenhNhan")]
+
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject CurrentPatientService CurrentPatientService
+@inject NavigationManager Navigation
+
+<PageTitle>Lịch sử khám</PageTitle>
+
+<div class="patient-page">
+    <PatientSidebar ActiveMenu="exams"
+                    DisplayName="@SidebarName" />
+
+    <main class="patient-main">
+        @if (IsLoading)
+        {
+            <section class="patient-loading">
+                <div class="patient-loading-spinner"></div>
+
+                <strong>Đang tải lịch sử khám...</strong>
+
+                <span>
+                    Hệ thống chỉ truy xuất các ca khám
+                    thuộc hồ sơ của bạn.
+                </span>
+            </section>
+        }
+        else if (!string.IsNullOrWhiteSpace(ErrorMessage))
+        {
+            <section class="patient-message-card error">
+                <div class="patient-message-icon">
+                    ⚠️
+                </div>
+
+                <div>
+                    <h2>Không thể tải lịch sử khám</h2>
+
+                    <p>@ErrorMessage</p>
+
+                    <button class="patient-btn patient-btn-primary"
+                            type="button"
+                            @onclick="ReloadData">
+                        Thử lại
+                    </button>
+                </div>
+            </section>
+        }
+        else if (CurrentPatient == null)
+        {
+            <section class="patient-message-card warning">
+                <div class="patient-message-icon">
+                    🔗
+                </div>
+
+                <div>
+                    <h2>Tài khoản chưa liên kết hồ sơ</h2>
+
+                    <p>
+                        Tài khoản <strong>@CurrentUserName</strong>
+                        chưa được liên kết với hồ sơ bệnh nhân.
+                    </p>
+
+                    <p>
+                        Vì lý do bảo mật, hệ thống không hiển thị
+                        ca khám của bất kỳ bệnh nhân nào khác.
+                    </p>
+
+                    <button class="patient-btn patient-btn-outline"
+                            type="button"
+                            @onclick="GoHome">
+                        Quay lại trang chủ
+                    </button>
+                </div>
+            </section>
+        }
+        else
+        {
+            <header class="patient-exam-header">
+                <div>
+                    <span class="patient-eyebrow">
+                        Khám bệnh
+                    </span>
+
+                    <h1>Lịch sử khám của tôi</h1>
+
+                    <p>
+                        Theo dõi các lần khám, bác sĩ phụ trách,
+                        lý do khám và trạng thái điều trị.
+                    </p>
+                </div>
+
+                <div class="patient-header-actions">
+                    <button class="patient-btn patient-btn-outline"
+                            type="button"
+                            @onclick="ReloadData">
+                        Làm mới
+                    </button>
+
+                    <button class="patient-btn patient-btn-primary"
+                            type="button"
+                            @onclick="GoHome">
+                        Về trang chủ
+                    </button>
+                </div>
+            </header>
+
+            <section class="patient-exam-security">
+                <div class="patient-exam-security-icon">
+                    🔒
+                </div>
+
+                <div>
+                    <strong>Dữ liệu khám bệnh riêng tư</strong>
+
+                    <p>
+                        Danh sách bên dưới chỉ bao gồm các ca khám
+                        được liên kết với hồ sơ
+                        <strong>@CurrentPatient.HoTen</strong>.
+                    </p>
+                </div>
+            </section>
+
+            <section class="patient-exam-stats">
+                <article class="patient-stat-card">
+                    <div class="patient-stat-icon blue">
+                        🩺
+                    </div>
+
+                    <div>
+                        <span>Tổng lượt khám</span>
+
+                        <strong>@ExamHistory.Count</strong>
+
+                        <small>
+                            Toàn bộ lịch sử của bạn
+                        </small>
+                    </div>
+                </article>
+
+                <article class="patient-stat-card">
+                    <div class="patient-stat-icon green">
+                        ✅
+                    </div>
+
+                    <div>
+                        <span>Đã khám</span>
+
+                        <strong>@CompletedExamCount</strong>
+
+                        <small>
+                            Các ca đã hoàn thành
+                        </small>
+                    </div>
+                </article>
+
+                <article class="patient-stat-card">
+                    <div class="patient-stat-icon orange">
+                        ⏳
+                    </div>
+
+                    <div>
+                        <span>Đang chờ xử lý</span>
+
+                        <strong>@PendingExamCount</strong>
+
+                        <small>
+                            Chờ khám hoặc đang khám
+                        </small>
+                    </div>
+                </article>
+
+                <article class="patient-stat-card">
+                    <div class="patient-stat-icon purple">
+                        🔁
+                    </div>
+
+                    <div>
+                        <span>Lượt tái khám</span>
+
+                        <strong>@ReExamCount</strong>
+
+                        <small>
+                            Các lần khám lại
+                        </small>
+                    </div>
+                </article>
+            </section>
+
+            <section class="patient-card patient-exam-filter-card">
+                <div class="patient-exam-filter-head">
+                    <div>
+                        <h2>Tìm kiếm và lọc</h2>
+
+                        <p>
+                            Tìm theo bác sĩ, lý do khám, bệnh chứng
+                            hoặc trạng thái.
+                        </p>
+                    </div>
+
+                    <button class="patient-link-button"
+                            type="button"
+                            @onclick="ResetFilters">
+                        Xóa bộ lọc
+                    </button>
+                </div>
+
+                <div class="patient-exam-filter-grid">
+                    <div class="patient-exam-search">
+                        <span>🔍</span>
+
+                        <input placeholder="Tìm trong lịch sử khám..."
+                               @bind="SearchText"
+                               @bind:event="oninput" />
+                    </div>
+
+                    <div class="patient-filter-group">
+                        <label>Từ ngày</label>
+
+                        <input class="patient-filter-control"
+                               type="date"
+                               value="@FromDateValue"
+                               @onchange="OnFromDateChanged" />
+                    </div>
+
+                    <div class="patient-filter-group">
+                        <label>Đến ngày</label>
+
+                        <input class="patient-filter-control"
+                               type="date"
+                               value="@ToDateValue"
+                               @onchange="OnToDateChanged" />
+                    </div>
+                </div>
+
+                <div class="patient-exam-status-filters">
+                    <button class="@GetStatusButtonClass("all")"
+                            type="button"
+                            @onclick='() => SetStatusFilter("all")'>
+                        Tất cả
+                        <span>@ExamHistory.Count</span>
+                    </button>
+
+                    <button class="@GetStatusButtonClass("waiting")"
+                            type="button"
+                            @onclick='() => SetStatusFilter("waiting")'>
+                        Chờ khám
+                        <span>@WaitingExamCount</span>
+                    </button>
+
+                    <button class="@GetStatusButtonClass("examining")"
+                            type="button"
+                            @onclick='() => SetStatusFilter("examining")'>
+                        Đang khám
+                        <span>@ExaminingCount</span>
+                    </button>
+
+                    <button class="@GetStatusButtonClass("completed")"
+                            type="button"
+                            @onclick='() => SetStatusFilter("completed")'>
+                        Đã khám
+                        <span>@CompletedExamCount</span>
+                    </button>
+
+                    <button class="@GetStatusButtonClass("cancelled")"
+                            type="button"
+                            @onclick='() => SetStatusFilter("cancelled")'>
+                        Đã hủy
+                        <span>@CancelledExamCount</span>
+                    </button>
+                </div>
+            </section>
+
+            <section class="patient-card patient-exam-list-card">
+                <div class="patient-card-header">
+                    <div>
+                        <h2>Danh sách ca khám</h2>
+
+                        <p>
+                            Hiển thị @FilteredExams.Count()
+                            trong tổng số @ExamHistory.Count ca khám.
+                        </p>
+                    </div>
+
+                    <div class="patient-exam-result-count">
+                        @FilteredExams.Count() kết quả
+                    </div>
+                </div>
+
+                @if (FilteredExams.Any())
+                {
+                    <div class="patient-exam-list">
+                        @foreach (Cakham item in FilteredExams)
+                        {
+                            <article class="patient-exam-item">
+                                <div class="patient-exam-date-box">
+                                    <strong>
+                                        @item.NgayCT.ToString("dd")
+                                    </strong>
+
+                                    <span>
+                                        Tháng @item.NgayCT.ToString("MM")
+                                    </span>
+
+                                    <small>
+                                        @item.NgayCT.ToString("yyyy")
+                                    </small>
+                                </div>
+
+                                <div class="patient-exam-item-main">
+                                    <div class="patient-exam-item-top">
+                                        <div class="patient-exam-title-wrap">
+                                            <span class="patient-exam-code">
+                                                Ca khám #@item.Oid
+                                            </span>
+
+                                            <h3>
+                                                @ExamTitle(item)
+                                            </h3>
+                                        </div>
+                                    </div>
+
+                                    <div class="patient-exam-meta">
+                                        <div>
+                                            <span>🕒</span>
+
+                                            <div>
+                                                <small>Thời gian</small>
+
+                                                <strong>
+                                                    @item.NgayCT.ToString("HH:mm")
+                                                </strong>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <span>👨‍⚕️</span>
+
+                                            <div>
+                                                <small>Bác sĩ</small>
+
+                                                <strong>
+                                                    @DoctorName(item)
+                                                </strong>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <span>📋</span>
+
+                                            <div>
+                                                <small>Loại lượt khám</small>
+
+                                                <strong>
+                                                    @VisitTypeText(item.LoaiLuotKham)
+                                                </strong>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <span>🏥</span>
+
+                                            <div>
+                                                <small>Hình thức</small>
+
+                                                <strong>
+                                                    @ExamTypeText(item.LoaiCakham)
+                                                </strong>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="patient-exam-summary">
+                                        <div>
+                                            <span>Lý do khám</span>
+
+                                            <p>
+                                                @Text(item.LydoKham)
+                                            </p>
+                                        </div>
+
+                                        <div>
+                                            <span>Bệnh chứng/Kết luận</span>
+
+                                            <p>
+                                                @Text(item.Benhchung)
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="patient-exam-item-side">
+                                    <span class="@ExamStatusClass(item.TrangThai)">
+                                        @ExamStatusText(item.TrangThai)
+                                    </span>
+
+                                    <button class="patient-btn patient-btn-outline patient-exam-detail-btn"
+                                            type="button"
+                                            @onclick="() => OpenExam(item.Oid)">
+                                        Xem chi tiết
+                                        <span>→</span>
+                                    </button>
+                                </div>
+                            </article>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="patient-empty-state">
+                        <div>🩺</div>
+
+                        <strong>
+                            Không tìm thấy ca khám phù hợp
+                        </strong>
+
+                        <p>
+                            Hãy thay đổi từ khóa, trạng thái
+                            hoặc khoảng thời gian tìm kiếm.
+                        </p>
+
+                        <button class="patient-btn patient-btn-outline patient-empty-button"
+                                type="button"
+                                @onclick="ResetFilters">
+                            Xóa bộ lọc
+                        </button>
+                    </div>
+                }
+            </section>
+        }
+    </main>
+</div>
+
+@code {
+    private IObjectSpace objectSpace;
+
+    private Benhnhan CurrentPatient;
+
+    private List<Cakham> ExamHistory = new();
+
+    private string CurrentUserName = "Bệnh nhân";
+
+    private string ErrorMessage = string.Empty;
+
+    private string SearchText = string.Empty;
+
+    private string StatusFilter = "all";
+
+    private DateTime? FromDate;
+
+    private DateTime? ToDate;
+
+    private bool IsLoading = true;
+
+    private string SidebarName =>
+        CurrentPatient?.HoTen
+        ?? CurrentUserName;
+
+    private string FromDateValue =>
+        FromDate.HasValue
+            ? FromDate.Value.ToString("yyyy-MM-dd")
+            : string.Empty;
+
+    private string ToDateValue =>
+        ToDate.HasValue
+            ? ToDate.Value.ToString("yyyy-MM-dd")
+            : string.Empty;
+
+    private int CompletedExamCount =>
+        ExamHistory.Count(x =>
+            x.TrangThai ==
+                TrangThaiCaKham.DaKham
+        );
+
+    private int WaitingExamCount =>
+        ExamHistory.Count(x =>
+            x.TrangThai ==
+                TrangThaiCaKham.ChoKham
+        );
+
+    private int ExaminingCount =>
+        ExamHistory.Count(x =>
+            x.TrangThai ==
+                TrangThaiCaKham.DangKham
+        );
+
+    private int CancelledExamCount =>
+        ExamHistory.Count(x =>
+            x.TrangThai ==
+                TrangThaiCaKham.DaHuy
+        );
+
+    private int PendingExamCount =>
+        WaitingExamCount +
+        ExaminingCount;
+
+    private int ReExamCount =>
+        ExamHistory.Count(x =>
+            x.LoaiLuotKham ==
+                LoaiLuotKham.TaiKham
+        );
+
+    private IEnumerable<Cakham> FilteredExams
+    {
+        get
+        {
+            IEnumerable<Cakham> query =
+                ExamHistory;
+
+            if (StatusFilter == "waiting")
+            {
+                query = query.Where(x =>
+                    x.TrangThai ==
+                        TrangThaiCaKham.ChoKham
+                );
+            }
+            else if (StatusFilter == "examining")
+            {
+                query = query.Where(x =>
+                    x.TrangThai ==
+                        TrangThaiCaKham.DangKham
+                );
+            }
+            else if (StatusFilter == "completed")
+            {
+                query = query.Where(x =>
+                    x.TrangThai ==
+                        TrangThaiCaKham.DaKham
+                );
+            }
+            else if (StatusFilter == "cancelled")
+            {
+                query = query.Where(x =>
+                    x.TrangThai ==
+                        TrangThaiCaKham.DaHuy
+                );
+            }
+
+            if (FromDate.HasValue)
+            {
+                query = query.Where(x =>
+                    x.NgayCT.Date >=
+                    FromDate.Value.Date
+                );
+            }
+
+            if (ToDate.HasValue)
+            {
+                query = query.Where(x =>
+                    x.NgayCT.Date <=
+                    ToDate.Value.Date
+                );
+            }
+
+            if (!string.IsNullOrWhiteSpace(
+                SearchText))
+            {
+                string keyword =
+                    SearchText
+                        .Trim()
+                        .ToLowerInvariant();
+
+                query = query.Where(x =>
+                    ContainsKeyword(
+                        DoctorName(x),
+                        keyword
+                    ) ||
+
+                    ContainsKeyword(
+                        x.LydoKham,
+                        keyword
+                    ) ||
+
+                    ContainsKeyword(
+                        x.Benhchung,
+                        keyword
+                    ) ||
+
+                    ContainsKeyword(
+                        x.TenCaKham,
+                        keyword
+                    ) ||
+
+                    ContainsKeyword(
+                        ExamStatusText(
+                            x.TrangThai),
+                        keyword
+                    ) ||
+
+                    ContainsKeyword(
+                        VisitTypeText(
+                            x.LoaiLuotKham),
+                        keyword
+                    ) ||
+
+                    ContainsKeyword(
+                        ExamTypeText(
+                            x.LoaiCakham),
+                        keyword
+                    )
+                );
+            }
+
+            return query
+                .OrderByDescending(x =>
+                    x.NgayCT
+                );
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadExamHistory();
+    }
+
+    private async Task LoadExamHistory()
+    {
+        IsLoading = true;
+        ErrorMessage = string.Empty;
+
+        try
+        {
+            objectSpace?.Dispose();
+
+            objectSpace =
+                ObjectSpaceFactory
+                    .CreateObjectSpace(
+                        typeof(Cakham)
+                    );
+
+            CurrentUserName =
+                await CurrentPatientService
+                    .GetCurrentUserNameAsync();
+
+            CurrentPatient =
+                await CurrentPatientService
+                    .GetCurrentPatientAsync(
+                        objectSpace
+                    );
+
+            if (CurrentPatient == null)
+            {
+                ExamHistory.Clear();
+                return;
+            }
+
+            ExamHistory =
+                (
+                    await CurrentPatientService
+                        .GetExamHistoryAsync(
+                            objectSpace
+                        )
+                )
+                .OrderByDescending(x =>
+                    x.NgayCT
+                )
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            CurrentPatient = null;
+
+            ExamHistory.Clear();
+
+            ErrorMessage =
+                "Đã xảy ra lỗi khi tải lịch sử khám. " +
+                GetErrorMessage(ex);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task ReloadData()
+    {
+        await LoadExamHistory();
+    }
+
+    private void SetStatusFilter(
+        string status)
+    {
+        StatusFilter = status;
+    }
+
+    private string GetStatusButtonClass(
+        string status)
+    {
+        return StatusFilter == status
+            ? "patient-exam-filter-button active"
+            : "patient-exam-filter-button";
+    }
+
+    private void OnFromDateChanged(
+        ChangeEventArgs e)
+    {
+        string value =
+            e.Value?.ToString()
+            ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            FromDate = null;
+            return;
+        }
+
+        if (DateTime.TryParse(
+            value,
+            out DateTime result))
+        {
+            FromDate = result.Date;
+        }
+    }
+
+    private void OnToDateChanged(
+        ChangeEventArgs e)
+    {
+        string value =
+            e.Value?.ToString()
+            ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            ToDate = null;
+            return;
+        }
+
+        if (DateTime.TryParse(
+            value,
+            out DateTime result))
+        {
+            ToDate = result.Date;
+        }
+    }
+
+    private void ResetFilters()
+    {
+        SearchText = string.Empty;
+        StatusFilter = "all";
+        FromDate = null;
+        ToDate = null;
+    }
+
+    private void OpenExam(int oid)
+    {
+        Navigation.NavigateTo(
+            $"/patient/exams/{oid}"
+        );
+    }
+
+    private void GoHome()
+    {
+        Navigation.NavigateTo("/patient");
+    }
+
+    private string ExamTitle(Cakham item)
+    {
+        if (item == null)
+        {
+            return "Ca khám";
+        }
+
+        if (!string.IsNullOrWhiteSpace(
+            item.TenCaKham))
+        {
+            return item.TenCaKham;
+        }
+
+        if (!string.IsNullOrWhiteSpace(
+            item.LydoKham))
+        {
+            return item.LydoKham;
+        }
+
+        return $"Ca khám ngày " +
+               $"{item.NgayCT:dd/MM/yyyy}";
+    }
+
+    private string DoctorName(Cakham item)
+    {
+        if (item?.Bacsi == null)
+        {
+            return "Chưa phân công";
+        }
+
+        return string.IsNullOrWhiteSpace(
+            item.Bacsi.HoTen)
+                ? $"Bác sĩ #{item.Bacsi.Oid}"
+                : item.Bacsi.HoTen;
+    }
+
+    private string ExamStatusText(
+        TrangThaiCaKham status)
+    {
+        return status switch
+        {
+            TrangThaiCaKham.ChoKham =>
+                "Chờ khám",
+
+            TrangThaiCaKham.DangKham =>
+                "Đang khám",
+
+            TrangThaiCaKham.DaKham =>
+                "Đã khám",
+
+            TrangThaiCaKham.DaHuy =>
+                "Đã hủy",
+
+            _ => status.ToString()
+        };
+    }
+
+    private string ExamStatusClass(
+        TrangThaiCaKham status)
+    {
+        return status switch
+        {
+            TrangThaiCaKham.ChoKham =>
+                "patient-status warning",
+
+            TrangThaiCaKham.DangKham =>
+                "patient-status info",
+
+            TrangThaiCaKham.DaKham =>
+                "patient-status success",
+
+            TrangThaiCaKham.DaHuy =>
+                "patient-status danger",
+
+            _ => "patient-status neutral"
+        };
+    }
+
+    private string VisitTypeText(
+        LoaiLuotKham type)
+    {
+        return type switch
+        {
+            LoaiLuotKham.BenhNhanMoi =>
+                "Bệnh nhân mới",
+
+            LoaiLuotKham.BenhNhanCu =>
+                "Bệnh nhân cũ",
+
+            LoaiLuotKham.TaiKham =>
+                "Tái khám",
+
+            _ => type.ToString()
+        };
+    }
+
+    private string ExamTypeText(
+        LoaiCaKham type)
+    {
+        return type switch
+        {
+            LoaiCaKham.TrucTiep =>
+                "Trực tiếp",
+
+            LoaiCaKham.TuXa =>
+                "Từ xa",
+
+            _ => type.ToString()
+        };
+    }
+
+    private bool ContainsKeyword(
+        string value,
+        string keyword)
+    {
+        return
+            (value ?? string.Empty)
+                .ToLowerInvariant()
+                .Contains(keyword);
+    }
+
+    private string Text(string value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? "Chưa cập nhật"
+            : value;
+    }
+
+    private string GetErrorMessage(
+        Exception exception)
+    {
+        Exception current =
+            exception;
+
+        while (
+            current.InnerException != null &&
+            !string.IsNullOrWhiteSpace(
+                current.InnerException.Message
+            )
+        )
+        {
+            current =
+                current.InnerException;
+        }
+
+        return current.Message;
+    }
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+}

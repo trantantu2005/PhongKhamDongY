@@ -1,0 +1,61 @@
+﻿<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(DevExpress.ExpressApp.Blazor.BlazorApplication).Assembly"
+            AdditionalAssemblies="new[] { typeof(Program).Assembly }">
+
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData">
+                <Authorizing>
+                    <div class="route-loading-page">
+                        <div class="route-loading-spinner"></div>
+
+                        <strong>Đang kiểm tra quyền truy cập...</strong>
+                    </div>
+                </Authorizing>
+
+                <NotAuthorized>
+                    <div class="route-access-denied">
+                        <div class="route-access-denied-icon">
+                            🔒
+                        </div>
+
+                        <h2>Không có quyền truy cập</h2>
+
+                        <p>
+                            Tài khoản hiện tại không được phép truy cập
+                            vào trang này.
+                        </p>
+
+                        <a class="route-access-button"
+                           href="/role-redirect">
+                            Quay lại trang phù hợp
+                        </a>
+                    </div>
+                </NotAuthorized>
+            </AuthorizeRouteView>
+        </Found>
+
+        <NotFound>
+            <LayoutView>
+                <PageTitle>Không tìm thấy trang</PageTitle>
+
+                <div class="route-access-denied">
+                    <div class="route-access-denied-icon">
+                        🔍
+                    </div>
+
+                    <h2>Không tìm thấy trang</h2>
+
+                    <p>
+                        Đường dẫn bạn đang truy cập không tồn tại
+                        hoặc đã được thay đổi.
+                    </p>
+
+                    <a class="route-access-button"
+                       href="/role-redirect">
+                        Quay lại trang chủ
+                    </a>
+                </div>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>

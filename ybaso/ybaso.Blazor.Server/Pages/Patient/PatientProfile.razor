@@ -1,0 +1,1047 @@
+﻿@page "/patient/profile"
+
+@using System.Linq
+@using System.Net.Mail
+@using DevExpress.ExpressApp
+@using Microsoft.AspNetCore.Authorization
+@using ybaso.Blazor.Server.Services
+@using ybaso.Module.BusinessObjects
+@implements IDisposable
+
+@attribute [Authorize(Roles = "BenhNhan")]
+
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject CurrentPatientService CurrentPatientService
+@inject NavigationManager Navigation
+
+<PageTitle>Thông tin của tôi</PageTitle>
+
+<div class="patient-page">
+    <PatientSidebar ActiveMenu="profile"
+                    DisplayName="@SidebarName" />
+
+    <main class="patient-main">
+
+        @if (!string.IsNullOrWhiteSpace(ActionMessage))
+        {
+            <div class="@ActionMessageClass">
+                @ActionMessage
+            </div>
+        }
+
+        @if (IsLoading)
+        {
+            <section class="patient-loading">
+                <div class="patient-loading-spinner"></div>
+
+                <strong>Đang tải hồ sơ của bạn...</strong>
+
+                <span>
+                    Hệ thống chỉ truy xuất hồ sơ được liên kết
+                    với tài khoản hiện tại.
+                </span>
+            </section>
+        }
+        else if (!string.IsNullOrWhiteSpace(ErrorMessage))
+        {
+            <section class="patient-message-card error">
+                <div class="patient-message-icon">
+                    ⚠️
+                </div>
+
+                <div>
+                    <h2>Không thể tải hồ sơ</h2>
+
+                    <p>@ErrorMessage</p>
+
+                    <button class="patient-btn patient-btn-primary"
+                            type="button"
+                            @onclick="ReloadData">
+                        Thử lại
+                    </button>
+                </div>
+            </section>
+        }
+        else if (CurrentPatient == null)
+        {
+            <section class="patient-message-card warning">
+                <div class="patient-message-icon">
+                    🔗
+                </div>
+
+                <div>
+                    <h2>Tài khoản chưa liên kết hồ sơ</h2>
+
+                    <p>
+                        Tài khoản <strong>@CurrentUserName</strong>
+                        chưa được liên kết với hồ sơ bệnh nhân.
+                    </p>
+
+                    <p>
+                        Vui lòng liên hệ nhân viên phòng khám.
+                        Hệ thống không tự động hiển thị hồ sơ
+                        của bất kỳ bệnh nhân nào khác.
+                    </p>
+
+                    <button class="patient-btn patient-btn-outline"
+                            type="button"
+                            @onclick="GoHome">
+                        Quay lại trang chủ
+                    </button>
+                </div>
+            </section>
+        }
+        else
+        {
+            <header class="patient-profile-header">
+                <div>
+                    <span class="patient-eyebrow">
+                        Hồ sơ cá nhân
+                    </span>
+
+                    <h1>Thông tin của tôi</h1>
+
+                    <p>
+                        Xem thông tin cá nhân, liên hệ, giấy tờ
+                        và tiền sử bệnh đang lưu tại phòng khám.
+                    </p>
+                </div>
+
+                <div class="patient-header-actions">
+                    @if (!IsEditMode)
+                    {
+                        <button class="patient-btn patient-btn-outline"
+                                type="button"
+                                disabled="@IsSaving"
+                                @onclick="ReloadData">
+                            Làm mới
+                        </button>
+
+                        <button class="patient-btn patient-btn-primary"
+                                type="button"
+                                disabled="@IsSaving"
+                                @onclick="BeginEdit">
+                            ✏️ Cập nhật thông tin
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="patient-btn patient-btn-outline"
+                                type="button"
+                                disabled="@IsSaving"
+                                @onclick="CancelEdit">
+                            Hủy
+                        </button>
+
+                        <button class="patient-btn patient-btn-primary"
+                                type="button"
+                                disabled="@IsSaving"
+                                @onclick="SaveProfile">
+                            @(IsSaving
+                                ? "Đang lưu..."
+                                : "💾 Lưu thay đổi")
+                        </button>
+                    }
+                </div>
+            </header>
+
+            <section class="patient-profile-hero">
+                <div class="patient-profile-identity">
+                    <div class="patient-profile-avatar">
+                        @GetInitials(CurrentPatient.HoTen)
+                    </div>
+
+                    <div>
+                        <span>Hồ sơ bệnh nhân</span>
+
+                        <h2>
+                            @Text(CurrentPatient.HoTen)
+                        </h2>
+
+                        <p>
+                            @GenderText(CurrentPatient.Gioitinh)
+                            •
+                            @AgeText(CurrentPatient.Ngaysinh)
+                        </p>
+                    </div>
+                </div>
+
+                <div class="patient-private-badge">
+                    <span>🔒</span>
+
+                    <div>
+                        <strong>Dữ liệu riêng tư</strong>
+
+                        <small>
+                            Chỉ hiển thị cho tài khoản của bạn
+                        </small>
+                    </div>
+                </div>
+            </section>
+
+            <section class="patient-profile-grid">
+
+                <!-- THÔNG TIN CÁ NHÂN -->
+                <article class="patient-card patient-profile-card">
+                    <div class="patient-card-header">
+                        <div>
+                            <h2>Thông tin cá nhân</h2>
+
+                            <p>
+                                Thông tin nhận dạng cơ bản của bệnh nhân.
+                            </p>
+                        </div>
+
+                        <div class="patient-section-icon blue">
+                            👤
+                        </div>
+                    </div>
+
+                    <div class="patient-detail-grid">
+                        <div class="patient-detail-item">
+                            <span>Họ</span>
+
+                            <strong>
+                                @Text(CurrentPatient.Ho)
+                            </strong>
+                        </div>
+
+                        <div class="patient-detail-item">
+                            <span>Tên</span>
+
+                            <strong>
+                                @Text(CurrentPatient.Ten)
+                            </strong>
+                        </div>
+
+                        <div class="patient-detail-item">
+                            <span>Họ và tên</span>
+
+                            <strong>
+                                @Text(CurrentPatient.HoTen)
+                            </strong>
+                        </div>
+
+                        <div class="patient-detail-item">
+                            <span>Ngày sinh</span>
+
+                            <strong>
+                                @FormatDate(CurrentPatient.Ngaysinh)
+                            </strong>
+                        </div>
+
+                        <div class="patient-detail-item">
+                            <span>Tuổi</span>
+
+                            <strong>
+                                @AgeText(CurrentPatient.Ngaysinh)
+                            </strong>
+                        </div>
+
+                        <div class="patient-detail-item">
+                            <span>Giới tính</span>
+
+                            <strong>
+                                @GenderText(CurrentPatient.Gioitinh)
+                            </strong>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- THÔNG TIN LIÊN HỆ -->
+                <article class="patient-card patient-profile-card">
+                    <div class="patient-card-header">
+                        <div>
+                            <h2>Thông tin liên hệ</h2>
+
+                            <p>
+                                Số điện thoại, email và địa chỉ liên hệ.
+                            </p>
+                        </div>
+
+                        <div class="patient-section-icon cyan">
+                            📞
+                        </div>
+                    </div>
+
+                    @if (!IsEditMode)
+                    {
+                        <div class="patient-detail-list">
+                            <div class="patient-detail-row">
+                                <div class="patient-detail-row-icon">
+                                    📱
+                                </div>
+
+                                <div>
+                                    <span>Điện thoại</span>
+
+                                    <strong>
+                                        @Text(CurrentPatient.Dienthoai)
+                                    </strong>
+                                </div>
+                            </div>
+
+                            <div class="patient-detail-row">
+                                <div class="patient-detail-row-icon">
+                                    ✉️
+                                </div>
+
+                                <div>
+                                    <span>Email</span>
+
+                                    <strong>
+                                        @Text(CurrentPatient.Email)
+                                    </strong>
+                                </div>
+                            </div>
+
+                            <div class="patient-detail-row">
+                                <div class="patient-detail-row-icon">
+                                    📍
+                                </div>
+
+                                <div>
+                                    <span>Địa chỉ</span>
+
+                                    <strong>
+                                        @Text(CurrentPatient.Diachi)
+                                    </strong>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="patient-profile-edit-form">
+
+                            <div class="patient-edit-group">
+                                <label>
+                                    Số điện thoại
+                                    <span class="patient-required">*</span>
+                                </label>
+
+                                <input class="patient-edit-control"
+                                       type="tel"
+                                       maxlength="20"
+                                       autocomplete="tel"
+                                       placeholder="Nhập số điện thoại..."
+                                       @bind="EditPhone" />
+                            </div>
+
+                            <div class="patient-edit-group">
+                                <label>Email</label>
+
+                                <input class="patient-edit-control"
+                                       type="email"
+                                       maxlength="255"
+                                       autocomplete="email"
+                                       placeholder="Nhập địa chỉ email..."
+                                       @bind="EditEmail" />
+                            </div>
+
+                            <div class="patient-edit-group full">
+                                <label>Địa chỉ</label>
+
+                                <textarea class="patient-edit-control"
+                                          rows="4"
+                                          maxlength="2000"
+                                          autocomplete="street-address"
+                                          placeholder="Nhập địa chỉ hiện tại..."
+                                          @bind="EditAddress">
+                                </textarea>
+                            </div>
+
+                            <div class="patient-edit-note">
+                                <span>ℹ️</span>
+
+                                <p>
+                                    Bạn chỉ có thể tự cập nhật số điện thoại,
+                                    email và địa chỉ. Họ tên, ngày sinh, CCCD,
+                                    BHYT và tiền sử bệnh cần được phòng khám
+                                    kiểm tra trước khi thay đổi.
+                                </p>
+                            </div>
+
+                            <div class="patient-edit-actions">
+                                <button class="patient-btn patient-btn-outline"
+                                        type="button"
+                                        disabled="@IsSaving"
+                                        @onclick="CancelEdit">
+                                    Hủy thay đổi
+                                </button>
+
+                                <button class="patient-btn patient-btn-primary"
+                                        type="button"
+                                        disabled="@IsSaving"
+                                        @onclick="SaveProfile">
+                                    @(IsSaving
+                                        ? "Đang lưu..."
+                                        : "Lưu thông tin")
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </article>
+
+                <!-- GIẤY TỜ VÀ BẢO HIỂM -->
+                <article class="patient-card patient-profile-card">
+                    <div class="patient-card-header">
+                        <div>
+                            <h2>Giấy tờ và bảo hiểm</h2>
+
+                            <p>
+                                Thông tin CCCD/CMND và bảo hiểm y tế.
+                            </p>
+                        </div>
+
+                        <div class="patient-section-icon purple">
+                            🪪
+                        </div>
+                    </div>
+
+                    <div class="patient-detail-grid">
+                        <div class="patient-detail-item">
+                            <span>Số CMND/CCCD</span>
+
+                            <strong>
+                                @Text(CurrentPatient.SoCMND)
+                            </strong>
+                        </div>
+
+                        <div class="patient-detail-item">
+                            <span>Ngày cấp</span>
+
+                            <strong>
+                                @FormatOptionalDate(
+                                    CurrentPatient.Ngaycap
+                                )
+                            </strong>
+                        </div>
+
+                        <div class="patient-detail-item">
+                            <span>Nơi cấp</span>
+
+                            <strong>
+                                @ObjectText(CurrentPatient.Noicap)
+                            </strong>
+                        </div>
+
+                        <div class="patient-detail-item">
+                            <span>Số bảo hiểm y tế</span>
+
+                            <strong>
+                                @Text(CurrentPatient.SoBHYT)
+                            </strong>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- KHU VỰC CƯ TRÚ -->
+                <article class="patient-card patient-profile-card">
+                    <div class="patient-card-header">
+                        <div>
+                            <h2>Khu vực cư trú</h2>
+
+                            <p>
+                                Thông tin hành chính trong hồ sơ.
+                            </p>
+                        </div>
+
+                        <div class="patient-section-icon orange">
+                            🏠
+                        </div>
+                    </div>
+
+                    <div class="patient-detail-grid">
+                        <div class="patient-detail-item">
+                            <span>Tỉnh/Thành phố</span>
+
+                            <strong>
+                                @ObjectText(CurrentPatient.DpTinh)
+                            </strong>
+                        </div>
+
+                        <div class="patient-detail-item">
+                            <span>Quận/Huyện</span>
+
+                            <strong>
+                                @ObjectText(CurrentPatient.DpHuyen)
+                            </strong>
+                        </div>
+
+                        <div class="patient-detail-item">
+                            <span>Phường/Xã</span>
+
+                            <strong>
+                                @ObjectText(CurrentPatient.DpXa)
+                            </strong>
+                        </div>
+
+                        <div class="patient-detail-item full">
+                            <span>Địa chỉ chi tiết</span>
+
+                            <strong>
+                                @Text(CurrentPatient.Diachi)
+                            </strong>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- TIỀN SỬ BỆNH -->
+                <article class="patient-card patient-profile-card patient-history-card">
+                    <div class="patient-card-header">
+                        <div>
+                            <h2>Tiền sử bệnh</h2>
+
+                            <p>
+                                Thông tin tiền sử đang được lưu
+                                trong hồ sơ bệnh nhân.
+                            </p>
+                        </div>
+
+                        <div class="patient-section-icon red">
+                            ❤️
+                        </div>
+                    </div>
+
+                    <div class="patient-medical-history">
+                        @if (string.IsNullOrWhiteSpace(
+                            CurrentPatient.Tiensu))
+                        {
+                            <div class="patient-empty-history">
+                                <span>✓</span>
+
+                                <div>
+                                    <strong>
+                                        Chưa ghi nhận tiền sử bệnh
+                                    </strong>
+
+                                    <p>
+                                        Hồ sơ hiện chưa có thông tin
+                                        tiền sử bệnh.
+                                    </p>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <p>
+                                @CurrentPatient.Tiensu
+                            </p>
+                        }
+                    </div>
+                </article>
+
+                <!-- HƯỚNG DẪN CẬP NHẬT -->
+                <article class="patient-card patient-profile-card patient-help-card">
+                    <div class="patient-card-header">
+                        <div>
+                            <h2>Cần điều chỉnh thông tin?</h2>
+
+                            <p>
+                                Một số thông tin có thể được tự cập nhật.
+                            </p>
+                        </div>
+
+                        <div class="patient-section-icon green">
+                            💬
+                        </div>
+                    </div>
+
+                    <div class="patient-help-content">
+                        <p>
+                            Bạn có thể tự cập nhật số điện thoại,
+                            email và địa chỉ. Những thông tin định danh
+                            hoặc thông tin y tế cần được nhân viên
+                            phòng khám xác minh trước khi thay đổi.
+                        </p>
+
+                        <div class="patient-help-actions">
+                            @if (!IsEditMode)
+                            {
+                                <button class="patient-btn patient-btn-primary"
+                                        type="button"
+                                        @onclick="BeginEdit">
+                                    ✏️ Cập nhật thông tin
+                                </button>
+                            }
+
+                            <button class="patient-btn patient-btn-outline"
+                                    type="button"
+                                    disabled="@IsSaving"
+                                    @onclick="GoExams">
+                                Xem lịch sử khám
+                            </button>
+
+                            <button class="patient-btn patient-btn-outline"
+                                    type="button"
+                                    disabled="@IsSaving"
+                                    @onclick="GoHome">
+                                Về trang chủ
+                            </button>
+                        </div>
+                    </div>
+                </article>
+            </section>
+        }
+    </main>
+</div>
+
+@code {
+    private IObjectSpace objectSpace;
+
+    private Benhnhan CurrentPatient;
+
+    private string CurrentUserName = "Bệnh nhân";
+
+    private string ErrorMessage = string.Empty;
+
+    private string ActionMessage = string.Empty;
+
+    private string ActionMessageClass =
+        "patient-action-message success";
+
+    private bool IsLoading = true;
+
+    private bool IsEditMode;
+
+    private bool IsSaving;
+
+    private string EditPhone = string.Empty;
+
+    private string EditEmail = string.Empty;
+
+    private string EditAddress = string.Empty;
+
+    private string SidebarName =>
+        CurrentPatient?.HoTen
+        ?? CurrentUserName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProfile();
+    }
+
+    private async Task LoadProfile()
+    {
+        IsLoading = true;
+        ErrorMessage = string.Empty;
+
+        try
+        {
+            objectSpace?.Dispose();
+
+            objectSpace =
+                ObjectSpaceFactory.CreateObjectSpace(
+                    typeof(Benhnhan)
+                );
+
+            CurrentUserName =
+                await CurrentPatientService
+                    .GetCurrentUserNameAsync();
+
+            CurrentPatient =
+                await CurrentPatientService
+                    .GetCurrentPatientAsync(
+                        objectSpace
+                    );
+
+            if (CurrentPatient != null)
+            {
+                LoadEditValues();
+            }
+            else
+            {
+                ClearEditValues();
+            }
+        }
+        catch (Exception ex)
+        {
+            CurrentPatient = null;
+
+            ClearEditValues();
+
+            ErrorMessage =
+                "Đã xảy ra lỗi khi tải hồ sơ. " +
+                GetErrorMessage(ex);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private void LoadEditValues()
+    {
+        if (CurrentPatient == null)
+        {
+            ClearEditValues();
+            return;
+        }
+
+        EditPhone =
+            CurrentPatient.Dienthoai
+            ?? string.Empty;
+
+        EditEmail =
+            CurrentPatient.Email
+            ?? string.Empty;
+
+        EditAddress =
+            CurrentPatient.Diachi
+            ?? string.Empty;
+    }
+
+    private void ClearEditValues()
+    {
+        EditPhone = string.Empty;
+        EditEmail = string.Empty;
+        EditAddress = string.Empty;
+    }
+
+    private void BeginEdit()
+    {
+        if (CurrentPatient == null ||
+            IsSaving)
+        {
+            return;
+        }
+
+        LoadEditValues();
+
+        ActionMessage = string.Empty;
+        IsEditMode = true;
+    }
+
+    private void CancelEdit()
+    {
+        if (IsSaving)
+        {
+            return;
+        }
+
+        LoadEditValues();
+
+        ActionMessage = string.Empty;
+        IsEditMode = false;
+    }
+
+    private async Task ReloadData()
+    {
+        if (IsSaving)
+        {
+            return;
+        }
+
+        IsEditMode = false;
+        ActionMessage = string.Empty;
+
+        await LoadProfile();
+    }
+
+    private bool ValidateProfile()
+    {
+        ActionMessage = string.Empty;
+
+        string phone =
+            (EditPhone ?? string.Empty).Trim();
+
+        string phoneDigits =
+            new string(
+                phone
+                    .Where(char.IsDigit)
+                    .ToArray()
+            );
+
+        if (string.IsNullOrWhiteSpace(phoneDigits))
+        {
+            ShowActionError(
+                "Vui lòng nhập số điện thoại."
+            );
+
+            return false;
+        }
+
+        if (phoneDigits.Length < 9 ||
+            phoneDigits.Length > 15)
+        {
+            ShowActionError(
+                "Số điện thoại phải có từ 9 đến 15 chữ số."
+            );
+
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(EditEmail))
+        {
+            try
+            {
+                MailAddress mailAddress =
+                    new MailAddress(
+                        EditEmail.Trim()
+                    );
+
+                if (!string.Equals(
+                    mailAddress.Address,
+                    EditEmail.Trim(),
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    ShowActionError(
+                        "Địa chỉ email không đúng định dạng."
+                    );
+
+                    return false;
+                }
+            }
+            catch
+            {
+                ShowActionError(
+                    "Địa chỉ email không đúng định dạng."
+                );
+
+                return false;
+            }
+        }
+
+        if ((EditAddress?.Length ?? 0) > 2000)
+        {
+            ShowActionError(
+                "Địa chỉ không được vượt quá 2.000 ký tự."
+            );
+
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task SaveProfile()
+    {
+        if (IsSaving ||
+            CurrentPatient == null)
+        {
+            return;
+        }
+
+        if (!ValidateProfile())
+        {
+            return;
+        }
+
+        IsSaving = true;
+        ActionMessage = string.Empty;
+
+        try
+        {
+            CurrentPatient.Dienthoai =
+                (EditPhone ?? string.Empty)
+                    .Trim();
+
+            CurrentPatient.Email =
+                string.IsNullOrWhiteSpace(EditEmail)
+                    ? null
+                    : EditEmail.Trim();
+
+            CurrentPatient.Diachi =
+                string.IsNullOrWhiteSpace(EditAddress)
+                    ? null
+                    : EditAddress.Trim();
+
+            objectSpace.CommitChanges();
+
+            objectSpace.Refresh();
+
+            CurrentPatient =
+                await CurrentPatientService
+                    .GetCurrentPatientAsync(
+                        objectSpace
+                    );
+
+            if (CurrentPatient == null)
+            {
+                IsEditMode = false;
+
+                ShowActionError(
+                    "Không thể tải lại hồ sơ sau khi cập nhật."
+                );
+
+                return;
+            }
+
+            LoadEditValues();
+
+            IsEditMode = false;
+
+            ActionMessageClass =
+                "patient-action-message success";
+
+            ActionMessage =
+                "Thông tin liên hệ đã được cập nhật thành công.";
+        }
+        catch (Exception ex)
+        {
+            ShowActionError(
+                "Không thể cập nhật thông tin. " +
+                GetErrorMessage(ex)
+            );
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+
+    private void ShowActionError(string message)
+    {
+        ActionMessageClass =
+            "patient-action-message error";
+
+        ActionMessage = message;
+    }
+
+    private void GoHome()
+    {
+        Navigation.NavigateTo("/patient");
+    }
+
+    private void GoExams()
+    {
+        Navigation.NavigateTo("/patient/exams");
+    }
+
+    private string Text(string value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? "Chưa cập nhật"
+            : value;
+    }
+
+    private string ObjectText(object value)
+    {
+        if (value == null)
+        {
+            return "Chưa cập nhật";
+        }
+
+        string result =
+            value.ToString();
+
+        return string.IsNullOrWhiteSpace(result)
+            ? "Chưa cập nhật"
+            : result;
+    }
+
+    private string GenderText(int gender)
+    {
+        return gender switch
+        {
+            1 => "Nam",
+            2 => "Nữ",
+            _ => "Chưa cập nhật"
+        };
+    }
+
+    private string FormatDate(DateTime value)
+    {
+        if (value == DateTime.MinValue)
+        {
+            return "Chưa cập nhật";
+        }
+
+        return value.ToString("dd/MM/yyyy");
+    }
+
+    private string FormatOptionalDate(DateTime value)
+    {
+        if (value == DateTime.MinValue)
+        {
+            return "Chưa cập nhật";
+        }
+
+        return value.ToString("dd/MM/yyyy");
+    }
+
+    private string AgeText(DateTime birthDate)
+    {
+        if (birthDate == DateTime.MinValue)
+        {
+            return "Chưa cập nhật";
+        }
+
+        DateTime today =
+            DateTime.Today;
+
+        int age =
+            today.Year -
+            birthDate.Year;
+
+        if (birthDate.Date >
+            today.AddYears(-age))
+        {
+            age--;
+        }
+
+        return $"{Math.Max(age, 0)} tuổi";
+    }
+
+    private string GetInitials(string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+        {
+            return "BN";
+        }
+
+        string[] parts =
+            fullName.Split(
+                ' ',
+                StringSplitOptions.RemoveEmptyEntries
+            );
+
+        if (parts.Length == 0)
+        {
+            return "BN";
+        }
+
+        if (parts.Length == 1)
+        {
+            return parts[0]
+                .Substring(
+                    0,
+                    Math.Min(
+                        2,
+                        parts[0].Length
+                    )
+                )
+                .ToUpperInvariant();
+        }
+
+        return $"{parts[0][0]}{parts[^1][0]}"
+            .ToUpperInvariant();
+    }
+
+    private string GetErrorMessage(
+        Exception exception
+    )
+    {
+        Exception current =
+            exception;
+
+        while (
+            current.InnerException != null &&
+            !string.IsNullOrWhiteSpace(
+                current.InnerException.Message
+            )
+        )
+        {
+            current =
+                current.InnerException;
+        }
+
+        return current.Message;
+    }
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+}

@@ -1,0 +1,1943 @@
+﻿@page "/staff/reports"
+
+@using System.Linq
+@using DevExpress.ExpressApp
+@using Microsoft.JSInterop
+@using ybaso.Module.BusinessObjects
+@implements IDisposable
+
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject IJSRuntime JS
+
+<div class="staff-page report-page">
+    <div class="report-sidebar no-print">
+        <StaffSidebar ActiveMenu="reports" />
+    </div>
+
+    <main class="staff-main">
+        <header class="mf-topbar no-print">
+            <div>
+                <h1>Báo cáo nhân viên</h1>
+
+                <p>
+                    Thống kê hoạt động khám bệnh, kho dược
+                    và doanh thu theo thời gian.
+                </p>
+            </div>
+
+            <div class="mf-actions">
+                <button class="mf-btn mf-btn-outline"
+                        type="button"
+                        @onclick="ReloadData">
+                    Làm mới
+                </button>
+
+                <button class="mf-btn mf-btn-primary"
+                        type="button"
+                        @onclick="PrintReport">
+                    🖨 In báo cáo
+                </button>
+            </div>
+        </header>
+
+        @if (!string.IsNullOrWhiteSpace(Message))
+        {
+            <div class="@MessageClass no-print">
+                @Message
+            </div>
+        }
+
+        <section class="mf-card report-filter no-print">
+            <div class="report-filter-top">
+                <div>
+                    <h2>Bộ lọc báo cáo</h2>
+
+                    <p>
+                        Dữ liệu được tổng hợp trực tiếp
+                        từ cơ sở dữ liệu.
+                    </p>
+                </div>
+
+                <div class="report-button-row">
+                    <button class="@RangeClass("today")"
+                            type="button"
+                            @onclick='() => SetRange("today")'>
+                        Hôm nay
+                    </button>
+
+                    <button class="@RangeClass("7days")"
+                            type="button"
+                            @onclick='() => SetRange("7days")'>
+                        7 ngày
+                    </button>
+
+                    <button class="@RangeClass("month")"
+                            type="button"
+                            @onclick='() => SetRange("month")'>
+                        Tháng này
+                    </button>
+
+                    <button class="@RangeClass("year")"
+                            type="button"
+                            @onclick='() => SetRange("year")'>
+                        Năm nay
+                    </button>
+                </div>
+            </div>
+
+            <div class="report-filter-grid">
+                <div class="staff-form-group">
+                    <label>Từ ngày</label>
+
+                    <input class="staff-form-control"
+                           type="date"
+                           value="@TuNgayValue"
+                           @onchange="ChangeFromDate" />
+                </div>
+
+                <div class="staff-form-group">
+                    <label>Đến ngày</label>
+
+                    <input class="staff-form-control"
+                           type="date"
+                           value="@DenNgayValue"
+                           @onchange="ChangeToDate" />
+                </div>
+
+                <div class="staff-form-group">
+                    <label>Tìm kiếm trong bảng</label>
+
+                    <div class="mf-search report-search">
+                        <span>🔍</span>
+
+                        <input placeholder="Tên bệnh nhân, mã phiếu, thuốc..."
+                               @bind="SearchText"
+                               @bind:event="oninput" />
+                    </div>
+                </div>
+
+                <button class="mf-btn mf-btn-primary report-apply"
+                        type="button"
+                        @onclick="ApplyRange">
+                    Áp dụng
+                </button>
+            </div>
+
+            <div class="report-period">
+                Kỳ báo cáo:
+
+                <strong>
+                    @TuNgay.ToString("dd/MM/yyyy")
+                </strong>
+
+                đến
+
+                <strong>
+                    @DenNgay.ToString("dd/MM/yyyy")
+                </strong>
+            </div>
+        </section>
+
+        <nav class="report-tabs no-print">
+            <button class="@TabClass("overview")"
+                    type="button"
+                    @onclick='() => SelectTab("overview")'>
+                Tổng quan
+            </button>
+
+            <button class="@TabClass("exams")"
+                    type="button"
+                    @onclick='() => SelectTab("exams")'>
+                Khám bệnh
+            </button>
+
+            <button class="@TabClass("inventory")"
+                    type="button"
+                    @onclick='() => SelectTab("inventory")'>
+                Kho dược
+            </button>
+
+            <button class="@TabClass("revenue")"
+                    type="button"
+                    @onclick='() => SelectTab("revenue")'>
+                Doanh thu
+            </button>
+        </nav>
+
+        <div class="print-title">
+            <h1>@ActiveTabTitle</h1>
+
+            <p>
+                Từ @TuNgay.ToString("dd/MM/yyyy")
+                đến @DenNgay.ToString("dd/MM/yyyy")
+            </p>
+        </div>
+
+        @if (ActiveTab == "overview")
+        {
+            <section class="report-content">
+                <div class="report-metrics">
+                    @foreach (ReportMetric metric in OverviewMetrics)
+                    {
+                        <article class="report-metric">
+                            <div class="report-metric-icon @metric.ColorClass">
+                                @metric.Icon
+                            </div>
+
+                            <div>
+                                <span>@metric.Label</span>
+
+                                <strong class="@metric.ValueClass">
+                                    @metric.Value
+                                </strong>
+
+                                <small>@metric.Note</small>
+                            </div>
+                        </article>
+                    }
+                </div>
+
+                <div class="report-two-columns">
+                    <section class="mf-card">
+                        <div class="mf-card-head">
+                            <div>
+                                <h2>Ca khám gần đây</h2>
+
+                                <p>
+                                    Các ca khám trong kỳ báo cáo.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="report-table-wrap">
+                            <table class="mf-table">
+                                <thead>
+                                    <tr>
+                                        <th>Thời gian</th>
+                                        <th>Bệnh nhân</th>
+                                        <th>Bác sĩ</th>
+                                        <th>Trạng thái</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    @foreach (
+                                        Cakham item
+                                        in CaKhamTrongKy.Take(8))
+                                    {
+                                        <tr>
+                                            <td>
+                                                @FormatDate(item.NgayCT)
+                                            </td>
+
+                                            <td>
+                                                @PatientName(item)
+                                            </td>
+
+                                            <td>
+                                                @EmployeeName(item.Bacsi)
+                                            </td>
+
+                                            <td>
+                                                <span class="@ExamStatusClass(item.TrangThai)">
+                                                    @ExamStatusText(item.TrangThai)
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        @if (!CaKhamTrongKy.Any())
+                        {
+                            <div class="mf-empty">
+                                Không có ca khám trong kỳ.
+                            </div>
+                        }
+                    </section>
+
+                    <section class="mf-card">
+                        <div class="mf-card-head">
+                            <div>
+                                <h2>Cảnh báo dược liệu</h2>
+
+                                <p>
+                                    Các dược liệu cần ưu tiên nhập thêm.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="report-alerts">
+                            @foreach (
+                                DuocLieu item
+                                in DuocLieuCanNhap.Take(8))
+                            {
+                                <div class="report-alert-item">
+                                    <div>
+                                        <strong>
+                                            @Text(item.TenDuocLieu)
+                                        </strong>
+
+                                        <span>
+                                            Tồn @Qty(item.SoLuongTon)
+                                            @Unit(item)
+                                            • Tối thiểu
+                                            @Qty(item.TonToiThieu)
+                                        </span>
+                                    </div>
+
+                                    <span class="@StockClass(
+                                                                                  item.SoLuongTon,
+                                                                                  item.TonToiThieu)">
+                                        @StockText(
+                                            item.SoLuongTon,
+                                            item.TonToiThieu)
+                                    </span>
+                                </div>
+                            }
+                        </div>
+
+                        @if (!DuocLieuCanNhap.Any())
+                        {
+                            <div class="mf-empty">
+                                Tồn kho dược liệu đang an toàn.
+                            </div>
+                        }
+                    </section>
+                </div>
+            </section>
+        }
+        else if (ActiveTab == "exams")
+        {
+            <section class="report-content">
+                <div class="report-metrics report-metrics-five">
+                    @foreach (ReportMetric metric in ExamMetrics)
+                    {
+                        <article class="report-metric">
+                            <div class="report-metric-icon @metric.ColorClass">
+                                @metric.Icon
+                            </div>
+
+                            <div>
+                                <span>@metric.Label</span>
+                                <strong>@metric.Value</strong>
+                                <small>@metric.Note</small>
+                            </div>
+                        </article>
+                    }
+                </div>
+
+                <section class="mf-card">
+                    <div class="mf-card-head">
+                        <div>
+                            <h2>Danh sách ca khám</h2>
+
+                            <p>
+                                Hiển thị @FilteredExams.Count()
+                                trong tổng số
+                                @CaKhamTrongKy.Count ca.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="report-table-wrap">
+                        <table class="mf-table report-wide-table">
+                            <thead>
+                                <tr>
+                                    <th>Ngày khám</th>
+                                    <th>Bệnh nhân</th>
+                                    <th>Điện thoại</th>
+                                    <th>Loại lượt khám</th>
+                                    <th>Hình thức</th>
+                                    <th>Bác sĩ</th>
+                                    <th>Lý do khám</th>
+                                    <th>Trạng thái</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                @foreach (Cakham item in FilteredExams)
+                                {
+                                    <tr>
+                                        <td>
+                                            @FormatDate(item.NgayCT)
+                                        </td>
+
+                                        <td>
+                                            @PatientName(item)
+                                        </td>
+
+                                        <td>
+                                            @PatientPhone(item)
+                                        </td>
+
+                                        <td>
+                                            @VisitTypeText(item.LoaiLuotKham)
+                                        </td>
+
+                                        <td>
+                                            @ExamTypeText(item.LoaiCakham)
+                                        </td>
+
+                                        <td>
+                                            @EmployeeName(item.Bacsi)
+                                        </td>
+
+                                        <td>
+                                            @Text(item.LydoKham)
+                                        </td>
+
+                                        <td>
+                                            <span class="@ExamStatusClass(item.TrangThai)">
+                                                @ExamStatusText(item.TrangThai)
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    @if (!FilteredExams.Any())
+                    {
+                        <div class="mf-empty">
+                            Không tìm thấy ca khám phù hợp.
+                        </div>
+                    }
+                </section>
+            </section>
+        }
+        else if (ActiveTab == "inventory")
+        {
+            <section class="report-content">
+                <div class="report-metrics">
+                    @foreach (ReportMetric metric in InventoryMetrics)
+                    {
+                        <article class="report-metric">
+                            <div class="report-metric-icon @metric.ColorClass">
+                                @metric.Icon
+                            </div>
+
+                            <div>
+                                <span>@metric.Label</span>
+                                <strong>@metric.Value</strong>
+                                <small>@metric.Note</small>
+                            </div>
+                        </article>
+                    }
+                </div>
+
+                <nav class="report-subtabs no-print">
+                    <button class="@InventoryTabClass("herbs")"
+                            type="button"
+                            @onclick='() => SelectInventoryTab("herbs")'>
+                        Dược liệu
+                    </button>
+
+                    <button class="@InventoryTabClass("medicines")"
+                            type="button"
+                            @onclick='() => SelectInventoryTab("medicines")'>
+                        Thang thuốc
+                    </button>
+
+                    <button class="@InventoryTabClass("movements")"
+                            type="button"
+                            @onclick='() => SelectInventoryTab("movements")'>
+                        Nhập / xuất kho
+                    </button>
+                </nav>
+
+                @if (InventoryTab == "herbs")
+                {
+                    <section class="mf-card">
+                        <div class="mf-card-head">
+                            <div>
+                                <h2>Tồn kho dược liệu</h2>
+
+                                <p>
+                                    Giá trị tồn theo giá nhập gần nhất.
+                                </p>
+                            </div>
+
+                            <strong class="report-total">
+                                @Money(TongGiaTriTonDuocLieu)
+                            </strong>
+                        </div>
+
+                        <div class="report-table-wrap">
+                            <table class="mf-table report-wide-table">
+                                <thead>
+                                    <tr>
+                                        <th>Dược liệu</th>
+                                        <th>Đơn vị</th>
+                                        <th>Tồn kho</th>
+                                        <th>Tồn tối thiểu</th>
+                                        <th>Giá nhập</th>
+                                        <th>Giá trị tồn</th>
+                                        <th>Trạng thái</th>
+                                        <th>Sử dụng</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    @foreach (
+                                        DuocLieu item
+                                        in FilteredHerbs)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <strong>
+                                                    @Text(item.TenDuocLieu)
+                                                </strong>
+
+                                                <small class="report-code">
+                                                    @HerbCode(item)
+                                                </small>
+                                            </td>
+
+                                            <td>
+                                                @Unit(item)
+                                            </td>
+
+                                            <td>
+                                                <strong>
+                                                    @Qty(item.SoLuongTon)
+                                                </strong>
+                                            </td>
+
+                                            <td>
+                                                @Qty(item.TonToiThieu)
+                                            </td>
+
+                                            <td>
+                                                @Money(item.GiaNhapGanNhat)
+                                            </td>
+
+                                            <td>
+                                                <strong>
+                                                    @Money(
+                                                        item.SoLuongTon *
+                                                        item.GiaNhapGanNhat)
+                                                </strong>
+                                            </td>
+
+                                            <td>
+                                                <span class="@StockClass(
+                                                                                                          item.SoLuongTon,
+                                                                                                          item.TonToiThieu)">
+                                                    @StockText(
+                                                        item.SoLuongTon,
+                                                        item.TonToiThieu)
+                                                </span>
+                                            </td>
+
+                                            <td>
+                                                <span class="@(item.SuDung
+                                                                                                          ? "staff-status success"
+                                                                                                          : "staff-status neutral")">
+                                                    @(item.SuDung
+                                                        ? "Đang dùng"
+                                                        : "Ngừng dùng")
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        @if (!FilteredHerbs.Any())
+                        {
+                            <div class="mf-empty">
+                                Không tìm thấy dược liệu phù hợp.
+                            </div>
+                        }
+                    </section>
+                }
+                else if (InventoryTab == "medicines")
+                {
+                    <section class="mf-card">
+                        <div class="mf-card-head">
+                            <div>
+                                <h2>Tồn kho thang thuốc</h2>
+
+                                <p>
+                                    Thuốc được tạo từ các dược liệu trong kho.
+                                </p>
+                            </div>
+
+                            <strong class="report-total">
+                                @Money(TongGiaTriTonThuoc)
+                            </strong>
+                        </div>
+
+                        <div class="report-table-wrap">
+                            <table class="mf-table report-wide-table">
+                                <thead>
+                                    <tr>
+                                        <th>Thuốc / thang thuốc</th>
+                                        <th>Đơn vị</th>
+                                        <th>Tồn kho</th>
+                                        <th>Tồn tối thiểu</th>
+                                        <th>Giá nguyên liệu</th>
+                                        <th>Giá bán</th>
+                                        <th>Giá trị tồn</th>
+                                        <th>Trạng thái</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    @foreach (
+                                        DanhMucThuoc item
+                                        in FilteredMedicines)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <strong>
+                                                    @Text(item.TenThuoc)
+                                                </strong>
+
+                                                <small class="report-code">
+                                                    @MedicineCode(item)
+                                                </small>
+                                            </td>
+
+                                            <td>
+                                                @Unit(item)
+                                            </td>
+
+                                            <td>
+                                                <strong>
+                                                    @Qty(item.SoLuongTon)
+                                                </strong>
+                                            </td>
+
+                                            <td>
+                                                @Qty(item.TonToiThieu)
+                                            </td>
+
+                                            <td>
+                                                @Money(
+                                                    item.GiaTinhTuDuocLieu)
+                                            </td>
+
+                                            <td>
+                                                @Money(item.GiaBan)
+                                            </td>
+
+                                            <td>
+                                                <strong>
+                                                    @Money(
+                                                        item.SoLuongTon *
+                                                        item.GiaBan)
+                                                </strong>
+                                            </td>
+
+                                            <td>
+                                                <span class="@StockClass(
+                                                                                                          item.SoLuongTon,
+                                                                                                          item.TonToiThieu)">
+                                                    @StockText(
+                                                        item.SoLuongTon,
+                                                        item.TonToiThieu)
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        @if (!FilteredMedicines.Any())
+                        {
+                            <div class="mf-empty">
+                                Không tìm thấy thuốc phù hợp.
+                            </div>
+                        }
+                    </section>
+                }
+                else
+                {
+                    <section class="mf-card">
+                        <div class="mf-card-head">
+                            <div>
+                                <h2>Lịch sử nhập và xuất kho</h2>
+
+                                <p>
+                                    Các phiếu đã hoàn tất
+                                    trong kỳ báo cáo.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="report-table-wrap">
+                            <table class="mf-table report-wide-table">
+                                <thead>
+                                    <tr>
+                                        <th>Thời gian</th>
+                                        <th>Loại phiếu</th>
+                                        <th>Mã phiếu</th>
+                                        <th>Đối tượng</th>
+                                        <th>Nhân viên</th>
+                                        <th>Giá trị</th>
+                                        <th>Trạng thái</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    @foreach (
+                                        WarehouseMovement item
+                                        in FilteredMovements)
+                                    {
+                                        <tr>
+                                            <td>
+                                                @FormatDate(item.Date)
+                                            </td>
+
+                                            <td>
+                                                <span class="@(item.Type == "Nhập kho"
+                                                                                                          ? "staff-status info"
+                                                                                                          : "staff-status warning")">
+                                                    @item.Type
+                                                </span>
+                                            </td>
+
+                                            <td>
+                                                <strong>
+                                                    @item.Code
+                                                </strong>
+                                            </td>
+
+                                            <td>
+                                                @item.Subject
+                                            </td>
+
+                                            <td>
+                                                @item.Employee
+                                            </td>
+
+                                            <td>
+                                                <strong>
+                                                    @Money(item.Value)
+                                                </strong>
+                                            </td>
+
+                                            <td>
+                                                <span class="staff-status success">
+                                                    Hoàn tất
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        @if (!FilteredMovements.Any())
+                        {
+                            <div class="mf-empty">
+                                Không có phiếu nhập hoặc xuất kho phù hợp.
+                            </div>
+                        }
+                    </section>
+                }
+            </section>
+        }
+        else
+        {
+            <section class="report-content">
+                <div class="report-metrics">
+                    @foreach (ReportMetric metric in RevenueMetrics)
+                    {
+                        <article class="report-metric">
+                            <div class="report-metric-icon @metric.ColorClass">
+                                @metric.Icon
+                            </div>
+
+                            <div>
+                                <span>@metric.Label</span>
+
+                                <strong class="@metric.ValueClass">
+                                    @metric.Value
+                                </strong>
+
+                                <small>@metric.Note</small>
+                            </div>
+                        </article>
+                    }
+                </div>
+
+                <section class="mf-card">
+                    <div class="mf-card-head">
+                        <div>
+                            <h2>Hóa đơn đã thanh toán</h2>
+
+                            <p>
+                                Hiển thị @FilteredInvoices.Count()
+                                trong tổng số
+                                @PaidInvoices.Count hóa đơn.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="report-table-wrap">
+                        <table class="mf-table report-wide-table">
+                            <thead>
+                                <tr>
+                                    <th>Ngày thanh toán</th>
+                                    <th>Mã hóa đơn</th>
+                                    <th>Bệnh nhân</th>
+                                    <th>Tiền thuốc</th>
+                                    <th>Tiền khám</th>
+                                    <th>Giảm giá</th>
+                                    <th>Tổng thanh toán</th>
+                                    <th>Hình thức</th>
+                                    <th>Nhân viên lập</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                @foreach (
+                                    HoaDonBenhNhan item
+                                    in FilteredInvoices)
+                                {
+                                    <tr>
+                                        <td>
+                                            @FormatDate(
+                                                item.NgayThanhToan ??
+                                                item.NgayLap)
+                                        </td>
+
+                                        <td>
+                                            <strong>
+                                                @Text(item.MaHoaDon)
+                                            </strong>
+                                        </td>
+
+                                        <td>
+                                            @PatientName(item)
+                                        </td>
+
+                                        <td>
+                                            @Money(item.TongTienThuoc)
+                                        </td>
+
+                                        <td>
+                                            @Money(item.TienKham)
+                                        </td>
+
+                                        <td>
+                                            @Money(item.GiamGia)
+                                        </td>
+
+                                        <td>
+                                            <strong>
+                                                @Money(item.TongThanhToan)
+                                            </strong>
+                                        </td>
+
+                                        <td>
+                                            <span class="staff-status info">
+                                                @PaymentText(
+                                                    item.HinhThucThanhToan)
+                                            </span>
+                                        </td>
+
+                                        <td>
+                                            @EmployeeName(item.NhanVienLap)
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    @if (!FilteredInvoices.Any())
+                    {
+                        <div class="mf-empty">
+                            Không tìm thấy hóa đơn phù hợp.
+                        </div>
+                    }
+                </section>
+            </section>
+        }
+    </main>
+</div>
+
+@code {
+    private IObjectSpace objectSpace;
+
+    private DateTime TuNgay = DateTime.Today;
+    private DateTime DenNgay = DateTime.Today;
+
+    private string QuickRange = "today";
+    private string ActiveTab = "overview";
+    private string InventoryTab = "herbs";
+    private string SearchText = string.Empty;
+
+    private string Message = string.Empty;
+
+    private string MessageClass =
+        "mf-alert mf-alert-success";
+
+    private List<Cakham> Exams = new();
+    private List<DuocLieu> Herbs = new();
+    private List<DanhMucThuoc> Medicines = new();
+    private List<PhieuNhapKho> Imports = new();
+    private List<PhieuXuatKho> Exports = new();
+    private List<HoaDonBenhNhan> Invoices = new();
+
+    private DateTime RangeStart =>
+        TuNgay.Date;
+
+    private DateTime RangeEnd =>
+        DenNgay.Date.AddDays(1);
+
+    private string TuNgayValue =>
+        TuNgay.ToString("yyyy-MM-dd");
+
+    private string DenNgayValue =>
+        DenNgay.ToString("yyyy-MM-dd");
+
+    private string ActiveTabTitle =>
+        ActiveTab switch
+        {
+            "exams" => "Báo cáo khám bệnh",
+            "inventory" => "Báo cáo kho dược",
+            "revenue" => "Báo cáo doanh thu",
+            _ => "Báo cáo tổng quan"
+        };
+
+    private List<Cakham> CaKhamTrongKy =>
+        Exams
+            .Where(x => InRange(x.NgayCT))
+            .OrderByDescending(x => x.NgayCT)
+            .ToList();
+
+    private IEnumerable<Cakham> FilteredExams =>
+        CaKhamTrongKy.Where(x =>
+            Match(
+                PatientName(x),
+                PatientPhone(x),
+                x.TenCaKham,
+                x.LydoKham,
+                EmployeeName(x.Bacsi),
+                ExamStatusText(x.TrangThai),
+                VisitTypeText(x.LoaiLuotKham)
+            )
+        );
+
+    private List<PhieuNhapKho> CompletedImports =>
+        Imports
+            .Where(x =>
+                x.TrangThai ==
+                    TrangThaiPhieuNhapKho.DaNhap &&
+                InRange(x.NgayNhap)
+            )
+            .OrderByDescending(x => x.NgayNhap)
+            .ToList();
+
+    private List<PhieuXuatKho> CompletedExports =>
+        Exports
+            .Where(x =>
+                x.TrangThai ==
+                    TrangThaiPhieuXuatKho.DaXuat &&
+                InRange(x.NgayXuat)
+            )
+            .OrderByDescending(x => x.NgayXuat)
+            .ToList();
+
+    private List<HoaDonBenhNhan> PaidInvoices =>
+        Invoices
+            .Where(x =>
+                x.TrangThai ==
+                    TrangThaiHoaDonBenhNhan.DaThanhToan &&
+
+                InRange(
+                    x.NgayThanhToan ??
+                    x.NgayLap
+                )
+            )
+            .OrderByDescending(x =>
+                x.NgayThanhToan ??
+                x.NgayLap
+            )
+            .ToList();
+
+    private IEnumerable<HoaDonBenhNhan> FilteredInvoices =>
+        PaidInvoices.Where(x =>
+            Match(
+                x.MaHoaDon,
+                PatientName(x),
+                PaymentText(x.HinhThucThanhToan),
+                EmployeeName(x.NhanVienLap)
+            )
+        );
+
+    private List<DuocLieu> DuocLieuCanNhap =>
+        Herbs
+            .Where(x =>
+                x.SuDung &&
+                x.SoLuongTon <= x.TonToiThieu
+            )
+            .OrderBy(x => x.SoLuongTon)
+            .ThenBy(x => x.TenDuocLieu)
+            .ToList();
+
+    private List<DanhMucThuoc> ThuocCanBoSung =>
+        Medicines
+            .Where(x =>
+                x.SuDung &&
+                x.SoLuongTon <= x.TonToiThieu
+            )
+            .OrderBy(x => x.SoLuongTon)
+            .ThenBy(x => x.TenThuoc)
+            .ToList();
+
+    private IEnumerable<DuocLieu> FilteredHerbs =>
+        Herbs
+            .Where(x =>
+                Match(
+                    x.MaDuocLieu,
+                    x.TenDuocLieu,
+                    Unit(x),
+                    StockText(
+                        x.SoLuongTon,
+                        x.TonToiThieu
+                    )
+                )
+            )
+            .OrderBy(x => x.TenDuocLieu);
+
+    private IEnumerable<DanhMucThuoc> FilteredMedicines =>
+        Medicines
+            .Where(x =>
+                Match(
+                    x.MaThuoc,
+                    x.TenThuoc,
+                    Unit(x),
+                    StockText(
+                        x.SoLuongTon,
+                        x.TonToiThieu
+                    )
+                )
+            )
+            .OrderBy(x => x.TenThuoc);
+
+    private List<WarehouseMovement> Movements
+    {
+        get
+        {
+            List<WarehouseMovement> rows =
+                CompletedImports
+                    .Select(x =>
+                        new WarehouseMovement
+                        {
+                            Date = x.NgayNhap,
+                            Type = "Nhập kho",
+                            Code = Text(x.MaPhieuNhap),
+                            Subject = Text(x.NhaCungCap),
+                            Employee =
+                                EmployeeName(x.NhanVien),
+                            Value = x.TongTien
+                        }
+                    )
+                    .ToList();
+
+            rows.AddRange(
+                CompletedExports.Select(x =>
+                    new WarehouseMovement
+                    {
+                        Date = x.NgayXuat,
+                        Type = "Xuất kho",
+                        Code = Text(x.MaPhieuXuat),
+                        Subject = PatientName(x),
+                        Employee =
+                            EmployeeName(x.NhanVien),
+                        Value = x.TongTien
+                    }
+                )
+            );
+
+            return rows
+                .OrderByDescending(x => x.Date)
+                .ToList();
+        }
+    }
+
+    private IEnumerable<WarehouseMovement> FilteredMovements =>
+        Movements.Where(x =>
+            Match(
+                x.Type,
+                x.Code,
+                x.Subject,
+                x.Employee
+            )
+        );
+
+    private int CompletedExamCount =>
+        CaKhamTrongKy.Count(x =>
+            x.TrangThai == TrangThaiCaKham.DaKham
+        );
+
+    private int NewExamCount =>
+        CaKhamTrongKy.Count(x =>
+            x.LoaiLuotKham ==
+                LoaiLuotKham.BenhNhanMoi
+        );
+
+    private int OldExamCount =>
+        CaKhamTrongKy.Count(x =>
+            x.LoaiLuotKham ==
+                LoaiLuotKham.BenhNhanCu
+        );
+
+    private int ReExamCount =>
+        CaKhamTrongKy.Count(x =>
+            x.LoaiLuotKham ==
+                LoaiLuotKham.TaiKham
+        );
+
+    private int NewPatientCount =>
+        Exams
+            .Where(x => x.BenhNhan != null)
+            .GroupBy(x => x.BenhNhan.Oid)
+            .Select(x =>
+                x.Min(y => y.NgayCT)
+            )
+            .Count(InRange);
+
+    private decimal Revenue =>
+        PaidInvoices.Sum(x =>
+            x.TongThanhToan
+        );
+
+    private decimal MedicineRevenue =>
+        PaidInvoices.Sum(x =>
+            x.TongTienThuoc
+        );
+
+    private decimal ExamRevenue =>
+        PaidInvoices.Sum(x =>
+            x.TienKham
+        );
+
+    private decimal Discount =>
+        PaidInvoices.Sum(x =>
+            x.GiamGia
+        );
+
+    private decimal ImportCost =>
+        CompletedImports.Sum(x =>
+            x.TongTien
+        );
+
+    private decimal ExportValue =>
+        CompletedExports.Sum(x =>
+            x.TongTien
+        );
+
+    private decimal EstimatedProfit =>
+        Revenue - ImportCost;
+
+    private decimal CashRevenue =>
+        PaidInvoices
+            .Where(x =>
+                x.HinhThucThanhToan ==
+                    HinhThucThanhToanHoaDon.TienMat
+            )
+            .Sum(x => x.TongThanhToan);
+
+    private decimal TransferRevenue =>
+        PaidInvoices
+            .Where(x =>
+                x.HinhThucThanhToan ==
+                    HinhThucThanhToanHoaDon.ChuyenKhoan
+            )
+            .Sum(x => x.TongThanhToan);
+
+    private decimal OtherRevenue =>
+        PaidInvoices
+            .Where(x =>
+                x.HinhThucThanhToan ==
+                    HinhThucThanhToanHoaDon.Khac
+            )
+            .Sum(x => x.TongThanhToan);
+
+    private decimal TongGiaTriTonDuocLieu =>
+        Herbs.Sum(x =>
+            x.SoLuongTon *
+            x.GiaNhapGanNhat
+        );
+
+    private decimal TongGiaTriTonThuoc =>
+        Medicines.Sum(x =>
+            x.SoLuongTon *
+            x.GiaBan
+        );
+
+    private IEnumerable<ReportMetric> OverviewMetrics =>
+        new[]
+        {
+            Metric(
+                "🩺",
+                "teal",
+                "Tổng lượt khám",
+                CaKhamTrongKy.Count.ToString(),
+                $"{CompletedExamCount} ca đã khám"
+            ),
+
+            Metric(
+                "👤",
+                "blue",
+                "Bệnh nhân mới",
+                NewPatientCount.ToString(),
+                "Có lần khám đầu tiên trong kỳ"
+            ),
+
+            Metric(
+                "💰",
+                "green",
+                "Doanh thu",
+                Money(Revenue),
+                $"{PaidInvoices.Count} hóa đơn đã thanh toán"
+            ),
+
+            Metric(
+                "📥",
+                "orange",
+                "Chi phí nhập kho",
+                Money(ImportCost),
+                $"{CompletedImports.Count} phiếu đã nhập"
+            ),
+
+            Metric(
+                "📤",
+                "purple",
+                "Phiếu xuất kho",
+                CompletedExports.Count.ToString(),
+                Money(ExportValue)
+            ),
+
+            Metric(
+                "🌿",
+                "red",
+                "Dược liệu cần nhập",
+                DuocLieuCanNhap.Count.ToString(),
+                "Hết hoặc dưới tồn tối thiểu"
+            ),
+
+            Metric(
+                "💊",
+                "yellow",
+                "Thuốc cần bổ sung",
+                ThuocCanBoSung.Count.ToString(),
+                "Thang thuốc có tồn thấp"
+            ),
+
+            Metric(
+                "📈",
+                "navy",
+                "Lợi nhuận tạm tính",
+                Money(EstimatedProfit),
+                "Doanh thu trừ chi phí nhập",
+                EstimatedProfit < 0
+                    ? "report-negative"
+                    : string.Empty
+            )
+        };
+
+    private IEnumerable<ReportMetric> ExamMetrics =>
+        new[]
+        {
+            Metric(
+                "🩺",
+                "teal",
+                "Tổng lượt khám",
+                CaKhamTrongKy.Count.ToString(),
+                "Trong kỳ báo cáo"
+            ),
+
+            Metric(
+                "🆕",
+                "blue",
+                "Bệnh nhân mới",
+                NewExamCount.ToString(),
+                "Theo loại lượt khám"
+            ),
+
+            Metric(
+                "👤",
+                "purple",
+                "Bệnh nhân cũ",
+                OldExamCount.ToString(),
+                "Theo loại lượt khám"
+            ),
+
+            Metric(
+                "🔁",
+                "orange",
+                "Tái khám",
+                ReExamCount.ToString(),
+                "Theo loại lượt khám"
+            ),
+
+            Metric(
+                "✅",
+                "green",
+                "Đã khám",
+                CompletedExamCount.ToString(),
+                "Ca hoàn thành"
+            )
+        };
+
+    private IEnumerable<ReportMetric> InventoryMetrics =>
+        new[]
+        {
+            Metric(
+                "🌿",
+                "teal",
+                "Tổng dược liệu",
+                Herbs.Count.ToString(),
+                $"{DuocLieuCanNhap.Count} cần nhập thêm"
+            ),
+
+            Metric(
+                "💊",
+                "blue",
+                "Tổng thang thuốc",
+                Medicines.Count.ToString(),
+                $"{ThuocCanBoSung.Count} cần bổ sung"
+            ),
+
+            Metric(
+                "📥",
+                "orange",
+                "Phiếu nhập",
+                CompletedImports.Count.ToString(),
+                Money(ImportCost)
+            ),
+
+            Metric(
+                "📤",
+                "purple",
+                "Phiếu xuất",
+                CompletedExports.Count.ToString(),
+                Money(ExportValue)
+            )
+        };
+
+    private IEnumerable<ReportMetric> RevenueMetrics =>
+        new[]
+        {
+            Metric(
+                "🧾",
+                "blue",
+                "Hóa đơn thanh toán",
+                PaidInvoices.Count.ToString(),
+                "Trong kỳ báo cáo"
+            ),
+
+            Metric(
+                "💰",
+                "green",
+                "Tổng doanh thu",
+                Money(Revenue),
+                "Sau giảm giá"
+            ),
+
+            Metric(
+                "💊",
+                "purple",
+                "Tiền thuốc",
+                Money(MedicineRevenue),
+                "Trước giảm giá"
+            ),
+
+            Metric(
+                "🩺",
+                "teal",
+                "Tiền khám",
+                Money(ExamRevenue),
+                "Phí khám trong hóa đơn"
+            ),
+
+            Metric(
+                "🏷",
+                "yellow",
+                "Tổng giảm giá",
+                Money(Discount),
+                "Đã trừ khi thanh toán"
+            ),
+
+            Metric(
+                "📥",
+                "orange",
+                "Chi phí nhập kho",
+                Money(ImportCost),
+                "Phiếu nhập đã xác nhận"
+            ),
+
+            Metric(
+                "📈",
+                "navy",
+                "Lợi nhuận tạm tính",
+                Money(EstimatedProfit),
+                "Chưa gồm chi phí vận hành",
+                EstimatedProfit < 0
+                    ? "report-negative"
+                    : string.Empty
+            ),
+
+            Metric(
+                "💳",
+                "red",
+                "Tiền mặt / chuyển khoản",
+                $"{Money(CashRevenue)} / {Money(TransferRevenue)}",
+                $"Khác: {Money(OtherRevenue)}"
+            )
+        };
+
+    protected override void OnInitialized()
+    {
+        objectSpace =
+            ObjectSpaceFactory.CreateObjectSpace(
+                typeof(Cakham)
+            );
+
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        Exams =
+            objectSpace
+                .GetObjects<Cakham>()
+                .ToList();
+
+        Herbs =
+            objectSpace
+                .GetObjects<DuocLieu>()
+                .ToList();
+
+        Medicines =
+            objectSpace
+                .GetObjects<DanhMucThuoc>()
+                .ToList();
+
+        Imports =
+            objectSpace
+                .GetObjects<PhieuNhapKho>()
+                .ToList();
+
+        Exports =
+            objectSpace
+                .GetObjects<PhieuXuatKho>()
+                .ToList();
+
+        Invoices =
+            objectSpace
+                .GetObjects<HoaDonBenhNhan>()
+                .ToList();
+    }
+
+    private void ReloadData()
+    {
+        try
+        {
+            objectSpace.Refresh();
+            LoadData();
+
+            MessageClass =
+                "mf-alert mf-alert-success";
+
+            Message =
+                "Đã làm mới dữ liệu báo cáo.";
+        }
+        catch (Exception ex)
+        {
+            MessageClass =
+                "mf-alert mf-alert-danger";
+
+            Message =
+                "Không thể làm mới báo cáo: " +
+                ErrorMessage(ex);
+        }
+    }
+
+    private async Task PrintReport()
+    {
+        await JS.InvokeVoidAsync(
+            "window.print"
+        );
+    }
+
+    private void SelectTab(string tab)
+    {
+        ActiveTab = tab;
+        SearchText = string.Empty;
+    }
+
+    private void SelectInventoryTab(string tab)
+    {
+        InventoryTab = tab;
+        SearchText = string.Empty;
+    }
+
+    private void SetRange(string range)
+    {
+        DateTime today =
+            DateTime.Today;
+
+        QuickRange = range;
+
+        if (range == "7days")
+        {
+            TuNgay = today.AddDays(-6);
+            DenNgay = today;
+        }
+        else if (range == "month")
+        {
+            TuNgay =
+                new DateTime(
+                    today.Year,
+                    today.Month,
+                    1
+                );
+
+            DenNgay = today;
+        }
+        else if (range == "year")
+        {
+            TuNgay =
+                new DateTime(
+                    today.Year,
+                    1,
+                    1
+                );
+
+            DenNgay = today;
+        }
+        else
+        {
+            TuNgay = today;
+            DenNgay = today;
+            QuickRange = "today";
+        }
+
+        Message = string.Empty;
+    }
+
+    private void ChangeFromDate(
+        ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(
+            e.Value?.ToString(),
+            out DateTime value))
+        {
+            TuNgay = value.Date;
+            QuickRange = "custom";
+        }
+    }
+
+    private void ChangeToDate(
+        ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(
+            e.Value?.ToString(),
+            out DateTime value))
+        {
+            DenNgay = value.Date;
+            QuickRange = "custom";
+        }
+    }
+
+    private void ApplyRange()
+    {
+        if (TuNgay > DenNgay)
+        {
+            MessageClass =
+                "mf-alert mf-alert-danger";
+
+            Message =
+                "Từ ngày không được lớn hơn đến ngày.";
+
+            return;
+        }
+
+        MessageClass =
+            "mf-alert mf-alert-success";
+
+        Message =
+            "Đã áp dụng khoảng thời gian báo cáo.";
+    }
+
+    private bool InRange(DateTime date)
+    {
+        return
+            date >= RangeStart &&
+            date < RangeEnd;
+    }
+
+    private bool Match(
+        params string[] values)
+    {
+        if (string.IsNullOrWhiteSpace(
+            SearchText))
+        {
+            return true;
+        }
+
+        string keyword =
+            SearchText
+                .Trim()
+                .ToLowerInvariant();
+
+        return values.Any(x =>
+            (x ?? string.Empty)
+                .ToLowerInvariant()
+                .Contains(keyword)
+        );
+    }
+
+    private string TabClass(string tab)
+    {
+        return ActiveTab == tab
+            ? "report-tab active"
+            : "report-tab";
+    }
+
+    private string InventoryTabClass(
+        string tab)
+    {
+        return InventoryTab == tab
+            ? "report-subtab active"
+            : "report-subtab";
+    }
+
+    private string RangeClass(
+        string range)
+    {
+        return QuickRange == range
+            ? "report-range active"
+            : "report-range";
+    }
+
+    private ReportMetric Metric(
+        string icon,
+        string color,
+        string label,
+        string value,
+        string note,
+        string valueClass = "")
+    {
+        return new ReportMetric(
+            icon,
+            color,
+            label,
+            value,
+            note,
+            valueClass
+        );
+    }
+
+    private string PatientName(
+        Cakham item)
+    {
+        if (item?.BenhNhan != null &&
+            !string.IsNullOrWhiteSpace(
+                item.BenhNhan.HoTen))
+        {
+            return item.BenhNhan.HoTen;
+        }
+
+        return Text(
+            item?.TenBenhNhanGon
+        );
+    }
+
+    private string PatientPhone(
+        Cakham item)
+    {
+        if (item?.BenhNhan != null &&
+            !string.IsNullOrWhiteSpace(
+                item.BenhNhan.Dienthoai))
+        {
+            return item.BenhNhan.Dienthoai;
+        }
+
+        return Text(
+            item?.DienThoaiBenhNhan
+        );
+    }
+
+    private string PatientName(
+        HoaDonBenhNhan item)
+    {
+        return item?.BenhNhan == null
+            ? "--"
+            : Text(item.BenhNhan.HoTen);
+    }
+
+    private string PatientName(
+        PhieuXuatKho item)
+    {
+        if (item?.BenhNhan != null)
+        {
+            return Text(
+                item.BenhNhan.HoTen
+            );
+        }
+
+        return Text(
+            item?.TenBenhNhan
+        );
+    }
+
+    private string EmployeeName(
+        Nhanvien item)
+    {
+        if (item == null)
+            return "--";
+
+        return string.IsNullOrWhiteSpace(
+            item.HoTen)
+                ? $"Nhân viên #{item.Oid}"
+                : item.HoTen;
+    }
+
+    private string ExamStatusText(
+        TrangThaiCaKham status)
+    {
+        return status switch
+        {
+            TrangThaiCaKham.ChoKham =>
+                "Chờ khám",
+
+            TrangThaiCaKham.DangKham =>
+                "Đang khám",
+
+            TrangThaiCaKham.DaKham =>
+                "Đã khám",
+
+            TrangThaiCaKham.DaHuy =>
+                "Đã hủy",
+
+            _ => status.ToString()
+        };
+    }
+
+    private string ExamStatusClass(
+        TrangThaiCaKham status)
+    {
+        return status switch
+        {
+            TrangThaiCaKham.ChoKham =>
+                "staff-status warning",
+
+            TrangThaiCaKham.DangKham =>
+                "staff-status info",
+
+            TrangThaiCaKham.DaKham =>
+                "staff-status success",
+
+            TrangThaiCaKham.DaHuy =>
+                "staff-status danger",
+
+            _ => "staff-status neutral"
+        };
+    }
+
+    private string VisitTypeText(
+        LoaiLuotKham type)
+    {
+        return type switch
+        {
+            LoaiLuotKham.BenhNhanMoi =>
+                "Bệnh nhân mới",
+
+            LoaiLuotKham.BenhNhanCu =>
+                "Bệnh nhân cũ",
+
+            LoaiLuotKham.TaiKham =>
+                "Tái khám",
+
+            _ => type.ToString()
+        };
+    }
+
+    private string ExamTypeText(
+        LoaiCaKham type)
+    {
+        return type switch
+        {
+            LoaiCaKham.TrucTiep =>
+                "Trực tiếp",
+
+            LoaiCaKham.TuXa =>
+                "Từ xa",
+
+            _ => type.ToString()
+        };
+    }
+
+    private string PaymentText(
+        HinhThucThanhToanHoaDon method)
+    {
+        return method switch
+        {
+            HinhThucThanhToanHoaDon.TienMat =>
+                "Tiền mặt",
+
+            HinhThucThanhToanHoaDon.ChuyenKhoan =>
+                "Chuyển khoản",
+
+            HinhThucThanhToanHoaDon.Khac =>
+                "Khác",
+
+            _ => method.ToString()
+        };
+    }
+
+    private string StockText(
+        decimal stock,
+        decimal minimum)
+    {
+        if (stock <= 0)
+            return "Hết hàng";
+
+        if (stock <= minimum)
+            return "Sắp hết";
+
+        return "Còn hàng";
+    }
+
+    private string StockClass(
+        decimal stock,
+        decimal minimum)
+    {
+        if (stock <= 0)
+            return "staff-status danger";
+
+        if (stock <= minimum)
+            return "staff-status warning";
+
+        return "staff-status success";
+    }
+
+    private string HerbCode(
+        DuocLieu item)
+    {
+        if (item == null)
+            return "--";
+
+        return string.IsNullOrWhiteSpace(
+            item.MaDuocLieu)
+                ? $"DL-{item.Oid:0000}"
+                : item.MaDuocLieu;
+    }
+
+    private string MedicineCode(
+        DanhMucThuoc item)
+    {
+        if (item == null)
+            return "--";
+
+        return string.IsNullOrWhiteSpace(
+            item.MaThuoc)
+                ? $"TH-{item.Oid:0000}"
+                : item.MaThuoc;
+    }
+
+    private string Unit(
+        DuocLieu item)
+    {
+        return
+            item?.DonViTinh?.TenDvt ??
+            "--";
+    }
+
+    private string Unit(
+        DanhMucThuoc item)
+    {
+        return
+            item?.DonViTinh?.TenDvt ??
+            "--";
+    }
+
+    private string Text(string value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? "--"
+            : value;
+    }
+
+    private string Money(decimal value)
+    {
+        return value.ToString("n0") +
+               " đ";
+    }
+
+    private string Qty(decimal value)
+    {
+        return value.ToString("0.##");
+    }
+
+    private string FormatDate(DateTime value)
+    {
+        return value.ToString(
+            "dd/MM/yyyy HH:mm"
+        );
+    }
+
+    private string ErrorMessage(
+        Exception ex)
+    {
+        Exception current = ex;
+
+        while (
+            current.InnerException != null &&
+            !string.IsNullOrWhiteSpace(
+                current.InnerException.Message))
+        {
+            current =
+                current.InnerException;
+        }
+
+        return current.Message;
+    }
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+
+    private sealed record ReportMetric(
+        string Icon,
+        string ColorClass,
+        string Label,
+        string Value,
+        string Note,
+        string ValueClass
+    );
+
+    private sealed class WarehouseMovement
+    {
+        public DateTime Date { get; set; }
+
+        public string Type { get; set; }
+            = string.Empty;
+
+        public string Code { get; set; }
+            = string.Empty;
+
+        public string Subject { get; set; }
+            = string.Empty;
+
+        public string Employee { get; set; }
+            = string.Empty;
+
+        public decimal Value { get; set; }
+    }
+}

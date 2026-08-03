@@ -1,0 +1,78 @@
+﻿<button type="button"
+        class="mf-logout-button"
+        title="Đăng xuất khỏi hệ thống"
+        @onclick="OpenConfirmDialog">
+
+    <svg class="mf-logout-button-icon"
+         viewBox="0 0 24 24"
+         aria-hidden="true">
+        <path d="M10 17l5-5-5-5v3H3v4h7v3zm9-14h-8a2 2 0 0 0-2 2v3h2V5h8v14h-8v-3H9v3a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z" />
+    </svg>
+
+    <span>Đăng xuất</span>
+</button>
+
+@if (_showConfirmDialog)
+{
+    <div class="mf-logout-overlay"
+         role="presentation"
+         @onclick="CloseConfirmDialog">
+
+        <section class="mf-logout-dialog"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="mf-logout-title"
+                 @onclick:stopPropagation="true">
+
+            <div class="mf-logout-dialog-icon">
+                <svg viewBox="0 0 24 24"
+                     aria-hidden="true">
+                    <path d="M10 17l5-5-5-5v3H3v4h7v3zm9-14h-8a2 2 0 0 0-2 2v3h2V5h8v14h-8v-3H9v3a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z" />
+                </svg>
+            </div>
+
+            <h3 id="mf-logout-title">
+                Xác nhận đăng xuất
+            </h3>
+
+            <p>
+                Bạn có chắc chắn muốn đăng xuất khỏi hệ thống
+                MediFlow không?
+            </p>
+
+            <div class="mf-logout-actions">
+                <button type="button"
+                        class="mf-logout-cancel"
+                        @onclick="CloseConfirmDialog">
+                    Hủy
+                </button>
+
+                @* Gửi HTTP POST ra ngoài Blazor Circuit.
+                   Endpoint /mediflow-logout sẽ xóa cookie và redirect
+                   về LoginPage bằng một lần tải trang hoàn toàn mới. *@
+                <form method="post"
+                      action="/mediflow-logout"
+                      class="mf-logout-form">
+                    <button type="submit"
+                            class="mf-logout-confirm">
+                        Đăng xuất
+                    </button>
+                </form>
+            </div>
+        </section>
+    </div>
+}
+
+@code {
+    private bool _showConfirmDialog;
+
+    private void OpenConfirmDialog()
+    {
+        _showConfirmDialog = true;
+    }
+
+    private void CloseConfirmDialog()
+    {
+        _showConfirmDialog = false;
+    }
+}

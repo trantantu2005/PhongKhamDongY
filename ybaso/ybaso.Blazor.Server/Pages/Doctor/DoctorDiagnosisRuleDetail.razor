@@ -1,0 +1,240 @@
+﻿@page "/doctor/diagnosis-rules/{Oid:int}"
+
+@using DevExpress.ExpressApp
+@using Microsoft.AspNetCore.Components.Authorization
+@using ybaso.Module.BusinessObjects
+@implements IDisposable
+
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<div class="doctor-page">
+
+    <DoctorSidebar />
+
+
+    <main class="doctor-main">
+        @if (DieuKien == null)
+        {
+            <div class="mf-alert mf-alert-danger">
+                Không tìm thấy điều kiện chẩn đoán.
+            </div>
+
+            <button class="mf-btn mf-btn-outline" @onclick="GoDiagnosisRules">
+                ← Quay lại danh sách
+            </button>
+        }
+        else
+        {
+            <header class="mf-topbar">
+                <div>
+                    <h1>Chi tiết điều kiện chẩn đoán</h1>
+                    <p>@GetTenBenhDanh() • @GetTenHuyet()</p>
+                </div>
+
+                <div class="mf-actions">
+                    <button class="mf-btn mf-btn-outline" @onclick="GoDiagnosisRules">
+                        ← Quay lại danh sách
+                    </button>
+                </div>
+            </header>
+
+            <section class="doctor-stats">
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon blue">📘</div>
+                    <div>
+                        <p>Bệnh danh</p>
+                        <h3>@GetTenBenhDanh()</h3>
+                    </div>
+                </div>
+
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon purple">📍</div>
+                    <div>
+                        <p>Huyệt</p>
+                        <h3>@GetTenHuyet()</h3>
+                    </div>
+                </div>
+
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon orange">🧩</div>
+                    <div>
+                        <p>Nhóm điều kiện</p>
+                        <h3>@DieuKien.NhomDieuKien</h3>
+                    </div>
+                </div>
+
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon green">✅</div>
+                    <div>
+                        <p>Bắt buộc</p>
+                        <h3>@(DieuKien.BatBuoc ? "Có" : "Không")</h3>
+                    </div>
+                </div>
+            </section>
+
+            <section class="doctor-detail-page-card">
+                <div class="doctor-detail-page-head">
+                    <div>
+                        <span class="doctor-pill blue">@GetMaBenhDanh()</span>
+                        <h2>@GetTenBenhDanh()</h2>
+                        <p>Điều kiện dùng để kiểm tra số đo huyệt và hỗ trợ chẩn đoán tự động.</p>
+                    </div>
+
+                    <span class="@GetBatBuocClass(DieuKien.BatBuoc)">
+                        @(DieuKien.BatBuoc ? "Bắt buộc" : "Không bắt buộc")
+                    </span>
+                </div>
+
+                <div class="doctor-detail-page-grid">
+                    <div class="doctor-text-block">
+                        <label>Bệnh danh</label>
+                        <p>@GetTenBenhDanh()</p>
+                    </div>
+
+                    <div class="doctor-text-block">
+                        <label>Mã bệnh</label>
+                        <p>@GetMaBenhDanh()</p>
+                    </div>
+
+                    <div class="doctor-text-block">
+                        <label>Huyệt</label>
+                        <p>@GetTenHuyet()</p>
+                    </div>
+
+                    <div class="doctor-text-block">
+                        <label>Mã huyệt</label>
+                        <p>@GetMaHuyet()</p>
+                    </div>
+
+                    <div class="doctor-text-block">
+                        <label>Thứ tự</label>
+                        <p>@DieuKien.ThuTu</p>
+                    </div>
+
+                    <div class="doctor-text-block">
+                        <label>Nhóm điều kiện</label>
+                        <p>@DieuKien.NhomDieuKien</p>
+                    </div>
+
+                    <div class="doctor-text-block">
+                        <label>Kiểu giá trị</label>
+                        <p>@DieuKien.Kieugiatri</p>
+                    </div>
+
+                    <div class="doctor-text-block">
+                        <label>So sánh</label>
+                        <p>@EmptyText(DieuKien.Sosanh)</p>
+                    </div>
+
+                    <div class="doctor-text-block">
+                        <label>Giá trị</label>
+                        <p>@GetGiaTriText()</p>
+                    </div>
+
+                    <div class="doctor-text-block">
+                        <label>Giá trị số</label>
+                        <p>@DieuKien.GiaTriSo.ToString("0.##")</p>
+                    </div>
+
+                    <div class="doctor-text-block full">
+                        <label>Diễn giải</label>
+                        <p>@EmptyText(DieuKien.DienGiai)</p>
+                    </div>
+
+                    <div class="doctor-text-block full">
+                        <label>Công thức gốc Excel</label>
+                        <p>@EmptyText(DieuKien.CongThucGoc)</p>
+                    </div>
+                </div>
+            </section>
+        }
+    </main>
+</div>
+
+@code {
+    [Parameter]
+    public int Oid { get; set; }
+
+    private IObjectSpace objectSpace;
+    private Dieukien DieuKien;
+
+    private string CurrentUserName = "Bác sĩ";
+
+    protected override async Task OnInitializedAsync()
+    {
+        objectSpace = ObjectSpaceFactory.CreateObjectSpace(typeof(Dieukien));
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        CurrentUserName = authState.User?.Identity?.Name ?? "Bác sĩ";
+
+        DieuKien = objectSpace.GetObjectByKey<Dieukien>(Oid);
+    }
+
+    private string GetTenBenhDanh()
+    {
+        return DieuKien?.Ben?.Tenbenh ?? "Chưa chọn bệnh danh";
+    }
+
+    private string GetMaBenhDanh()
+    {
+        return DieuKien?.Ben?.Ma ?? "Chưa có mã bệnh";
+    }
+
+    private string GetTenHuyet()
+    {
+        return DieuKien?.Huyet?.TenHuyet ?? "Chưa chọn huyệt";
+    }
+
+    private string GetMaHuyet()
+    {
+        return DieuKien?.Huyet?.MaHuyet ?? "Chưa có mã huyệt";
+    }
+
+    private string GetGiaTriText()
+    {
+        if (DieuKien == null)
+            return "--";
+
+        if (!string.IsNullOrWhiteSpace(DieuKien.Giatri))
+            return DieuKien.Giatri;
+
+        return DieuKien.GiaTriSo.ToString("0.##");
+    }
+
+    private string EmptyText(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "Chưa có dữ liệu" : value;
+    }
+
+    private string GetBatBuocClass(bool value)
+    {
+        return value ? "doctor-status success" : "doctor-status warning";
+    }
+
+    private string GetInitials(string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+            return "BS";
+
+        string[] parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length == 1)
+            return parts[0].Substring(0, Math.Min(2, parts[0].Length)).ToUpperInvariant();
+
+        return $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant();
+    }
+
+    private void GoPatients() => Navigation.NavigateTo("/doctor/patients");
+    private void GoExams() => Navigation.NavigateTo("/doctor/exams");
+    private void GoDiseases() => Navigation.NavigateTo("/doctor/diseases");
+    private void GoAcupoints() => Navigation.NavigateTo("/doctor/acupoints");
+    private void GoDiagnosisRules() => Navigation.NavigateTo("/doctor/diagnosis-rules");
+    private void GoTreatmentPlans() => Navigation.NavigateTo("/doctor/treatment-plans");
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+}

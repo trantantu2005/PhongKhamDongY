@@ -1,0 +1,196 @@
+﻿@page "/doctor/acupoints/{Oid:int}"
+
+@using DevExpress.ExpressApp
+@using Microsoft.AspNetCore.Components.Authorization
+@using ybaso.Module.BusinessObjects
+@implements IDisposable
+
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<div class="doctor-page">
+
+    <DoctorSidebar />
+ 
+    <main class="doctor-main">
+        @if (Huyet == null)
+        {
+            <div class="mf-alert mf-alert-danger">
+                Không tìm thấy huyệt.
+            </div>
+
+            <button class="mf-btn mf-btn-outline" @onclick="GoAcupoints">
+                ← Quay lại danh sách
+            </button>
+        }
+        else
+        {
+            <header class="mf-topbar">
+                <div>
+                    <h1>@EmptyText(Huyet.TenHuyet)</h1>
+                    <p>Mã huyệt: @EmptyText(Huyet.MaHuyet) • Thứ tự: @Huyet.ThuTu</p>
+                </div>
+
+                <div class="mf-actions">
+                    <button class="mf-btn mf-btn-outline" @onclick="GoAcupoints">
+                        ← Quay lại danh sách
+                    </button>
+                </div>
+            </header>
+
+            <section class="doctor-stats">
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon blue">📍</div>
+                    <div>
+                        <p>Mã huyệt</p>
+                        <h3>@EmptyText(Huyet.MaHuyet)</h3>
+                    </div>
+                </div>
+
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon orange">🔢</div>
+                    <div>
+                        <p>Thứ tự</p>
+                        <h3>@Huyet.ThuTu</h3>
+                    </div>
+                </div>
+
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon purple">🧩</div>
+                    <div>
+                        <p>Nhóm chi</p>
+                        <h3>@GetNhomChiText(Huyet.NhomChi)</h3>
+                    </div>
+                </div>
+
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon green">✅</div>
+                    <div>
+                        <p>Trạng thái</p>
+                        <h3>@(Huyet.SuDung ? "Đang dùng" : "Tạm tắt")</h3>
+                    </div>
+                </div>
+            </section>
+
+            <section class="doctor-detail-page-card">
+                <div class="doctor-detail-page-head">
+                    <div>
+                        <span class="doctor-pill blue">@EmptyText(Huyet.MaHuyet)</span>
+                        <h2>@EmptyText(Huyet.TenHuyet)</h2>
+                        <p>Thông tin chi tiết huyệt phục vụ nhập số đo và phân tích chẩn đoán.</p>
+                    </div>
+
+                    <span class="@GetUseBadgeClass(Huyet.SuDung)">
+                        @(Huyet.SuDung ? "Đang dùng" : "Tạm tắt")
+                    </span>
+                </div>
+
+                <div class="doctor-detail-page-grid">
+                    <div class="doctor-text-block">
+                        <label>Mã huyệt</label>
+                        <p>@EmptyText(Huyet.MaHuyet)</p>
+                  </div>
+
+                    <div class="doctor-text-block">
+                        <label>Tên huyệt</label>
+                        <p>@EmptyText(Huyet.TenHuyet)</p>
+                    </div>
+
+                    <div class="doctor-text-block">
+                        <label>Nhóm chi</label>
+                        <p>@GetNhomChiText(Huyet.NhomChi)</p>
+                    </div>
+
+                    <div class="doctor-text-block">
+                        <label>Nhóm</label>
+                        <p>@EmptyText(Huyet.Nhom)</p>
+                    </div>
+
+                    <div class="doctor-text-block">
+                        <label>Thứ tự</label>
+                        <p>@Huyet.ThuTu</p>
+                    </div>
+
+                    <div class="doctor-text-block">
+                        <label>Số điều kiện sử dụng huyệt</label>
+                        <p>@Huyet.DieuKiens.Count điều kiện</p>
+                    </div>
+
+                    <div class="doctor-text-block full">
+                        <label>Mô tả</label>
+                        <p>@EmptyText(Huyet.MoTa)</p>
+                    </div>
+                </div>
+            </section>
+        }
+    </main>
+</div>
+
+@code {
+    [Parameter]
+    public int Oid { get; set; }
+
+    private IObjectSpace objectSpace;
+    private DanhMucHuyet Huyet;
+
+    private string CurrentUserName = "Bác sĩ";
+
+    protected override async Task OnInitializedAsync()
+    {
+        objectSpace = ObjectSpaceFactory.CreateObjectSpace(typeof(DanhMucHuyet));
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        CurrentUserName = authState.User?.Identity?.Name ?? "Bác sĩ";
+
+        Huyet = objectSpace.GetObjectByKey<DanhMucHuyet>(Oid);
+    }
+
+    private string EmptyText(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "Chưa có dữ liệu" : value;
+    }
+
+    private string GetNhomChiText(NhomChiDo nhomChi)
+    {
+        if (nhomChi == NhomChiDo.ChiTren)
+            return "Chi trên";
+
+        if (nhomChi == NhomChiDo.ChiDuoi)
+            return "Chi dưới";
+
+        return "--";
+    }
+
+    private string GetUseBadgeClass(bool value)
+    {
+        return value ? "doctor-status success" : "doctor-status danger";
+    }
+
+
+    private string GetInitials(string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+            return "BS";
+
+        string[] parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length == 1)
+            return parts[0].Substring(0, Math.Min(2, parts[0].Length)).ToUpperInvariant();
+
+        return $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant();
+    }
+
+
+    private void GoPatients() => Navigation.NavigateTo("/doctor/patients");
+    private void GoExams() => Navigation.NavigateTo("/doctor/exams");
+    private void GoDiseases() => Navigation.NavigateTo("/doctor/diseases");
+    private void GoAcupoints() => Navigation.NavigateTo("/doctor/acupoints");
+    private void GoDiagnosisRules() => Navigation.NavigateTo("/doctor/diagnosis-rules");
+    private void GoTreatmentPlans() => Navigation.NavigateTo("/doctor/treatment-plans");
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+}

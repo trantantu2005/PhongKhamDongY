@@ -1,0 +1,223 @@
+﻿@page "/doctor/treatment-plans/{Oid:int}"
+
+@using DevExpress.ExpressApp
+@using Microsoft.AspNetCore.Components.Authorization
+@using ybaso.Module.BusinessObjects
+@implements IDisposable
+
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<div class="doctor-page">
+    <DoctorSidebar />
+
+    <main class="doctor-main">
+        @if (PhacDo == null)
+        {
+            <div class="mf-alert mf-alert-danger">
+                Không tìm thấy phác đồ điều trị.
+            </div>
+
+            <button class="mf-btn mf-btn-outline" @onclick="GoTreatmentPlans">
+                ← Quay lại danh sách
+            </button>
+        }
+        else
+        {
+            <header class="mf-topbar">
+                <div>
+                    <h1>@GetTenBenhDanh()</h1>
+                    <p>Mã bệnh: @GetMaBenhDanh() • Ngày lập: @FormatDate(PhacDo.NgayLap)</p>
+                </div>
+
+                <div class="mf-actions">
+                    <button class="mf-btn mf-btn-outline" @onclick="GoTreatmentPlans">
+                        ← Quay lại danh sách
+                    </button>
+                </div>
+            </header>
+
+            <section class="doctor-stats">
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon blue">📘</div>
+                    <div>
+                        <p>Bệnh danh</p>
+                        <h3>@GetTenBenhDanh()</h3>
+                    </div>
+                </div>
+
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon green">✅</div>
+                    <div>
+                        <p>Trạng thái</p>
+                        <h3>@(PhacDo.SuDung ? "Đang dùng" : "Tạm tắt")</h3>
+                    </div>
+                </div>
+
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon orange">📅</div>
+                    <div>
+                        <p>Ngày lập</p>
+                        <h3>@FormatDate(PhacDo.NgayLap)</h3>
+                    </div>
+                </div>
+
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon purple">🩺</div>
+                    <div>
+                        <p>Ca khám</p>
+                        <h3>@GetCaKhamText()</h3>
+                    </div>
+                </div>
+            </section>
+
+            <section class="doctor-detail-page-card">
+                <div class="doctor-detail-page-head">
+                    <div>
+                        <span class="doctor-pill blue">@GetMaBenhDanh()</span>
+                        <h2>@GetTenBenhDanh()</h2>
+                        <p>Thông tin chi tiết phác đồ điều trị phục vụ quá trình khám và tư vấn.</p>
+                    </div>
+
+                    <span class="@GetUseBadgeClass(PhacDo.SuDung)">
+                        @(PhacDo.SuDung ? "Đang dùng" : "Tạm tắt")
+                    </span>
+                </div>
+
+                <div class="doctor-detail-page-grid">
+                    <div class="doctor-text-block">
+                        <label>Bệnh danh</label>
+                        <p>@GetTenBenhDanh()</p>
+                    </div>
+
+                    <div class="doctor-text-block">
+                        <label>Mã bệnh</label>
+                        <p>@GetMaBenhDanh()</p>
+                    </div>
+
+                    <div class="doctor-text-block">
+                        <label>Ngày lập</label>
+                        <p>@FormatDateTime(PhacDo.NgayLap)</p>
+                    </div>
+
+                    <div class="doctor-text-block">
+                        <label>Ca khám</label>
+                        <p>@GetCaKhamText()</p>
+                    </div>
+
+                    <div class="doctor-text-block full">
+                        <label>Pháp điều trị</label>
+                        <p>@EmptyText(PhacDo.PhapDieuTri)</p>
+                    </div>
+
+                    <div class="doctor-text-block full">
+                        <label>Phương dược</label>
+                        <p>@EmptyText(PhacDo.PhuongDuoc)</p>
+                    </div>
+
+                    <div class="doctor-text-block full">
+                        <label>Phương huyệt</label>
+                        <p>@EmptyText(PhacDo.PhuongHuyet)</p>
+                    </div>
+
+                    <div class="doctor-text-block full">
+                        <label>Lời dặn</label>
+                        <p>@EmptyText(PhacDo.LoiDan)</p>
+                    </div>
+                </div>
+            </section>
+        }
+    </main>
+</div>
+
+@code {
+    [Parameter]
+    public int Oid { get; set; }
+
+    private IObjectSpace objectSpace;
+    private PhacDoDieuTri PhacDo;
+
+    private string CurrentUserName = "Bác sĩ";
+
+    protected override async Task OnInitializedAsync()
+    {
+        objectSpace = ObjectSpaceFactory.CreateObjectSpace(typeof(PhacDoDieuTri));
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        CurrentUserName = authState.User?.Identity?.Name ?? "Bác sĩ";
+
+        PhacDo = objectSpace.GetObjectByKey<PhacDoDieuTri>(Oid);
+    }
+
+    private string GetTenBenhDanh()
+    {
+        return PhacDo?.Benh?.Tenbenh ?? "Chưa chọn bệnh danh";
+    }
+
+    private string GetMaBenhDanh()
+    {
+        return PhacDo?.Benh?.Ma ?? "Chưa có mã bệnh";
+    }
+
+    private string GetCaKhamText()
+    {
+        if (PhacDo?.Ca == null)
+            return "Chưa gắn";
+
+        string tenBenhNhan = PhacDo.Ca.BenhNhan?.HoTen ?? "Chưa chọn bệnh nhân";
+
+        return $"{tenBenhNhan} - {PhacDo.Ca.NgayCT:dd/MM/yyyy}";
+    }
+
+    private string FormatDate(DateTime date)
+    {
+        if (date == DateTime.MinValue)
+            return "--";
+
+        return date.ToString("dd/MM/yyyy");
+    }
+
+    private string FormatDateTime(DateTime date)
+    {
+        if (date == DateTime.MinValue)
+            return "--";
+
+        return date.ToString("dd/MM/yyyy HH:mm");
+    }
+
+    private string EmptyText(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "Chưa có dữ liệu" : value;
+    }
+
+    private string GetUseBadgeClass(bool value)
+    {
+        return value ? "doctor-status success" : "doctor-status danger";
+    }
+
+    private string GetInitials(string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+            return "BS";
+
+        string[] parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length == 1)
+            return parts[0].Substring(0, Math.Min(2, parts[0].Length)).ToUpperInvariant();
+
+        return $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant();
+    }
+
+    private void GoPatients() => Navigation.NavigateTo("/doctor/patients");
+    private void GoExams() => Navigation.NavigateTo("/doctor/exams");
+    private void GoDiseases() => Navigation.NavigateTo("/doctor/diseases");
+    private void GoAcupoints() => Navigation.NavigateTo("/doctor/acupoints");
+    private void GoDiagnosisRules() => Navigation.NavigateTo("/doctor/diagnosis-rules");
+    private void GoTreatmentPlans() => Navigation.NavigateTo("/doctor/treatment-plans");
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+}

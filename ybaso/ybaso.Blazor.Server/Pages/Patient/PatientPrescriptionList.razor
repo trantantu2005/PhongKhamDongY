@@ -1,0 +1,873 @@
+﻿@page "/patient/prescriptions"
+
+@using System.Linq
+@using DevExpress.ExpressApp
+@using Microsoft.AspNetCore.Authorization
+@using ybaso.Blazor.Server.Services
+@using ybaso.Module.BusinessObjects
+@implements IDisposable
+
+@attribute [Authorize(Roles = "BenhNhan")]
+
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject CurrentPatientService CurrentPatientService
+@inject NavigationManager Navigation
+
+<PageTitle>Đơn thuốc của tôi</PageTitle>
+
+<div class="patient-page">
+    <PatientSidebar ActiveMenu="prescriptions"
+                    DisplayName="@SidebarName" />
+
+    <main class="patient-main">
+
+        @if (IsLoading)
+        {
+            <section class="patient-loading">
+                <div class="patient-loading-spinner"></div>
+
+                <strong>Đang tải đơn thuốc...</strong>
+
+                <span>
+                    Hệ thống chỉ truy xuất các đơn thuốc
+                    thuộc hồ sơ của bạn.
+                </span>
+            </section>
+        }
+        else if (!string.IsNullOrWhiteSpace(ErrorMessage))
+        {
+            <section class="patient-message-card error">
+                <div class="patient-message-icon">
+                    ⚠️
+                </div>
+
+                <div>
+                    <h2>Không thể tải đơn thuốc</h2>
+
+                    <p>@ErrorMessage</p>
+
+                    <button class="patient-btn patient-btn-primary"
+                            type="button"
+                            @onclick="ReloadData">
+                        Thử lại
+                    </button>
+                </div>
+            </section>
+        }
+        else if (CurrentPatient == null)
+        {
+            <section class="patient-message-card warning">
+                <div class="patient-message-icon">
+                    🔗
+                </div>
+
+                <div>
+                    <h2>Tài khoản chưa liên kết hồ sơ</h2>
+
+                    <p>
+                        Tài khoản <strong>@CurrentUserName</strong>
+                        chưa được liên kết với hồ sơ bệnh nhân.
+                    </p>
+
+                    <p>
+                        Vì lý do bảo mật, hệ thống không hiển thị
+                        đơn thuốc của bất kỳ bệnh nhân nào khác.
+                    </p>
+
+                    <button class="patient-btn patient-btn-outline"
+                            type="button"
+                            @onclick="GoHome">
+                        Quay lại trang chủ
+                    </button>
+                </div>
+            </section>
+        }
+        else
+        {
+            <header class="patient-prescription-header">
+                <div>
+                    <span class="patient-eyebrow">
+                        Điều trị
+                    </span>
+
+                    <h1>Đơn thuốc của tôi</h1>
+
+                    <p>
+                        Theo dõi các đơn thuốc đã được bác sĩ kê,
+                        trạng thái cấp thuốc và chi phí dự kiến.
+                    </p>
+                </div>
+
+                <div class="patient-header-actions">
+                    <button class="patient-btn patient-btn-outline"
+                            type="button"
+                            @onclick="ReloadData">
+                        Làm mới
+                    </button>
+
+                    <button class="patient-btn patient-btn-primary"
+                            type="button"
+                            @onclick="GoHome">
+                        Về trang chủ
+                    </button>
+                </div>
+            </header>
+
+            <section class="patient-prescription-security">
+                <div class="patient-prescription-security-icon">
+                    🔒
+                </div>
+
+                <div>
+                    <strong>Dữ liệu đơn thuốc riêng tư</strong>
+
+                    <p>
+                        Danh sách chỉ bao gồm các đơn thuốc
+                        được kê cho bệnh nhân
+                        <strong>@CurrentPatient.HoTen</strong>.
+                    </p>
+                </div>
+            </section>
+
+            <section class="patient-prescription-stats">
+                <article class="patient-stat-card">
+                    <div class="patient-stat-icon purple">
+                        💊
+                    </div>
+
+                    <div>
+                        <span>Tổng đơn thuốc</span>
+
+                        <strong>
+                            @PrescriptionHistory.Count
+                        </strong>
+
+                        <small>
+                            Toàn bộ đơn thuốc của bạn
+                        </small>
+                    </div>
+                </article>
+
+                <article class="patient-stat-card">
+                    <div class="patient-stat-icon orange">
+                        ⏳
+                    </div>
+
+                    <div>
+                        <span>Chờ cấp thuốc</span>
+
+                        <strong>
+                            @WaitingCount
+                        </strong>
+
+                        <small>
+                            Đơn thuốc chưa xuất kho
+                        </small>
+                    </div>
+                </article>
+
+                <article class="patient-stat-card">
+                    <div class="patient-stat-icon green">
+                        ✅
+                    </div>
+
+                    <div>
+                        <span>Đã cấp thuốc</span>
+
+                        <strong>
+                            @DispensedCount
+                        </strong>
+
+                        <small>
+                            Đơn thuốc đã hoàn tất
+                        </small>
+                    </div>
+                </article>
+
+                <article class="patient-stat-card">
+                    <div class="patient-stat-icon blue">
+                        💰
+                    </div>
+
+                    <div>
+                        <span>Tổng tiền dự kiến</span>
+
+                        <strong class="patient-prescription-total-money">
+                            @FormatMoney(TotalEstimatedAmount)
+                        </strong>
+
+                        <small>
+                            Tổng giá trị các đơn thuốc
+                        </small>
+                    </div>
+                </article>
+            </section>
+
+            <section class="patient-card patient-prescription-filter-card">
+                <div class="patient-prescription-filter-head">
+                    <div>
+                        <h2>Tìm kiếm và lọc</h2>
+
+                        <p>
+                            Tìm theo mã đơn, bác sĩ,
+                            chẩn đoán hoặc trạng thái.
+                        </p>
+                    </div>
+
+                    <button class="patient-link-button"
+                            type="button"
+                            @onclick="ResetFilters">
+                        Xóa bộ lọc
+                    </button>
+                </div>
+
+                <div class="patient-prescription-filter-grid">
+                    <div class="patient-prescription-search">
+                        <span>🔍</span>
+
+                        <input placeholder="Tìm trong đơn thuốc..."
+                               @bind="SearchText"
+                               @bind:event="oninput" />
+                    </div>
+
+                    <div class="patient-filter-group">
+                        <label>Từ ngày</label>
+
+                        <input class="patient-filter-control"
+                               type="date"
+                               value="@FromDateValue"
+                               @onchange="OnFromDateChanged" />
+                    </div>
+
+                    <div class="patient-filter-group">
+                        <label>Đến ngày</label>
+
+                        <input class="patient-filter-control"
+                               type="date"
+                               value="@ToDateValue"
+                               @onchange="OnToDateChanged" />
+                    </div>
+                </div>
+
+                <div class="patient-prescription-status-filters">
+                    <button class="@GetStatusButtonClass("all")"
+                            type="button"
+                            @onclick='() => SetStatusFilter("all")'>
+                        Tất cả
+
+                        <span>
+                            @PrescriptionHistory.Count
+                        </span>
+                    </button>
+
+                    <button class="@GetStatusButtonClass("waiting")"
+                            type="button"
+                            @onclick='() => SetStatusFilter("waiting")'>
+                        Chờ cấp thuốc
+
+                        <span>
+                            @WaitingCount
+                        </span>
+                    </button>
+
+                    <button class="@GetStatusButtonClass("dispensed")"
+                            type="button"
+                            @onclick='() => SetStatusFilter("dispensed")'>
+                        Đã cấp thuốc
+
+                        <span>
+                            @DispensedCount
+                        </span>
+                    </button>
+
+                    <button class="@GetStatusButtonClass("cancelled")"
+                            type="button"
+                            @onclick='() => SetStatusFilter("cancelled")'>
+                        Đã hủy
+
+                        <span>
+                            @CancelledCount
+                        </span>
+                    </button>
+                </div>
+            </section>
+
+            <section class="patient-card patient-prescription-list-card">
+                <div class="patient-card-header">
+                    <div>
+                        <h2>Danh sách đơn thuốc</h2>
+
+                        <p>
+                            Hiển thị @FilteredPrescriptions.Count()
+                            trong tổng số
+                            @PrescriptionHistory.Count đơn thuốc.
+                        </p>
+                    </div>
+
+                    <div class="patient-prescription-result-count">
+                        @FilteredPrescriptions.Count() kết quả
+                    </div>
+                </div>
+
+                @if (FilteredPrescriptions.Any())
+                {
+                    <div class="patient-prescription-list">
+                        @foreach (
+                            DonThuoc item
+                            in FilteredPrescriptions)
+                        {
+                            <article class="patient-prescription-item">
+
+                                <div class="patient-prescription-date-box">
+                                    <strong>
+                                        @item.NgayKeDon.ToString("dd")
+                                    </strong>
+
+                                    <span>
+                                        Tháng
+                                        @item.NgayKeDon.ToString("MM")
+                                    </span>
+
+                                    <small>
+                                        @item.NgayKeDon.ToString("yyyy")
+                                    </small>
+                                </div>
+
+                                <div class="patient-prescription-item-main">
+                                    <div class="patient-prescription-item-top">
+                                        <div class="patient-prescription-title">
+                                            <span>
+                                                Đơn thuốc
+                                            </span>
+
+                                            <h3>
+                                                @PrescriptionCode(item)
+                                            </h3>
+                                        </div>
+
+                                        <span class="@PrescriptionStatusClass(
+                                                                                          item.TrangThai)">
+                                            @PrescriptionStatusText(
+                                                item.TrangThai)
+                                        </span>
+                                    </div>
+
+                                    <div class="patient-prescription-meta">
+                                        <div>
+                                            <span>🕒</span>
+
+                                            <div>
+                                                <small>Ngày kê đơn</small>
+
+                                                <strong>
+                                                    @item.NgayKeDon.ToString(
+                                                        "dd/MM/yyyy HH:mm")
+                                                </strong>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <span>👨‍⚕️</span>
+
+                                            <div>
+                                                <small>Bác sĩ kê đơn</small>
+
+                                                <strong title="@DoctorName(item)">
+                                                    @DoctorName(item)
+                                                </strong>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <span>💰</span>
+
+                                            <div>
+                                                <small>Tổng tiền dự kiến</small>
+
+                                                <strong>
+                                                    @FormatMoney(item.TongTien)
+                                                </strong>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="patient-prescription-diagnosis">
+                                        <span>Chẩn đoán</span>
+
+                                        <p title="@Text(item.ChanDoan)">
+                                            @Text(item.ChanDoan)
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div class="patient-prescription-item-side">
+                                    <div class="patient-prescription-price">
+                                        <span>Giá trị đơn</span>
+
+                                        <strong>
+                                            @FormatMoney(item.TongTien)
+                                        </strong>
+                                    </div>
+
+                                    <button class="patient-btn patient-btn-outline patient-prescription-exam-button"
+                                            type="button"
+                                            @onclick="() => OpenPrescription(item.Oid)">
+                                        Xem chi tiết
+                                        <span>→</span>
+                                    </button>
+                                </div>
+                            </article>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="patient-empty-state">
+                        <div>💊</div>
+
+                        <strong>
+                            Không tìm thấy đơn thuốc phù hợp
+                        </strong>
+
+                        <p>
+                            Hãy thay đổi từ khóa, trạng thái
+                            hoặc khoảng thời gian tìm kiếm.
+                        </p>
+
+                        <button class="patient-btn patient-btn-outline patient-empty-button"
+                                type="button"
+                                @onclick="ResetFilters">
+                            Xóa bộ lọc
+                        </button>
+                    </div>
+                }
+            </section>
+
+            <section class="patient-prescription-notice">
+                <div class="patient-prescription-notice-icon">
+                    ℹ️
+                </div>
+
+                <div>
+                    <strong>Lưu ý khi sử dụng thuốc</strong>
+
+                    <p>
+                        Hãy sử dụng thuốc đúng theo hướng dẫn của bác sĩ.
+                        Không tự ý thay đổi liều lượng hoặc ngừng thuốc.
+                        Khi có phản ứng bất thường, vui lòng liên hệ
+                        phòng khám để được hỗ trợ.
+                    </p>
+                </div>
+            </section>
+        }
+    </main>
+</div>
+
+@code {
+    private IObjectSpace objectSpace;
+
+    private Benhnhan CurrentPatient;
+
+    private List<DonThuoc> PrescriptionHistory = new();
+
+    private string CurrentUserName = "Bệnh nhân";
+
+    private string ErrorMessage = string.Empty;
+
+    private string SearchText = string.Empty;
+
+    private string StatusFilter = "all";
+
+    private DateTime? FromDate;
+
+    private DateTime? ToDate;
+
+    private bool IsLoading = true;
+
+    private string SidebarName =>
+        CurrentPatient?.HoTen
+        ?? CurrentUserName;
+
+    private string FromDateValue =>
+        FromDate.HasValue
+            ? FromDate.Value.ToString("yyyy-MM-dd")
+            : string.Empty;
+
+    private string ToDateValue =>
+        ToDate.HasValue
+            ? ToDate.Value.ToString("yyyy-MM-dd")
+            : string.Empty;
+
+    private int WaitingCount =>
+        PrescriptionHistory.Count(x =>
+            x.TrangThai ==
+                TrangThaiDonThuoc.ChuaXuat
+        );
+
+    private void OpenPrescription(int oid)
+    {
+        Navigation.NavigateTo(
+            $"/patient/prescriptions/{oid}"
+        );
+    }
+
+    private int DispensedCount =>
+        PrescriptionHistory.Count(x =>
+            x.TrangThai ==
+                TrangThaiDonThuoc.DaXuat
+        );
+
+    private int CancelledCount =>
+        PrescriptionHistory.Count(x =>
+            x.TrangThai ==
+                TrangThaiDonThuoc.Huy
+        );
+
+    private decimal TotalEstimatedAmount =>
+        PrescriptionHistory.Sum(x =>
+            x.TongTien
+        );
+
+    private IEnumerable<DonThuoc>
+        FilteredPrescriptions
+    {
+        get
+        {
+            IEnumerable<DonThuoc> query =
+                PrescriptionHistory;
+
+            if (StatusFilter == "waiting")
+            {
+                query = query.Where(x =>
+                    x.TrangThai ==
+                        TrangThaiDonThuoc.ChuaXuat
+                );
+            }
+            else if (StatusFilter == "dispensed")
+            {
+                query = query.Where(x =>
+                    x.TrangThai ==
+                        TrangThaiDonThuoc.DaXuat
+                );
+            }
+            else if (StatusFilter == "cancelled")
+            {
+                query = query.Where(x =>
+                    x.TrangThai ==
+                        TrangThaiDonThuoc.Huy
+                );
+            }
+
+            if (FromDate.HasValue)
+            {
+                query = query.Where(x =>
+                    x.NgayKeDon.Date >=
+                    FromDate.Value.Date
+                );
+            }
+
+            if (ToDate.HasValue)
+            {
+                query = query.Where(x =>
+                    x.NgayKeDon.Date <=
+                    ToDate.Value.Date
+                );
+            }
+
+            if (!string.IsNullOrWhiteSpace(
+                SearchText))
+            {
+                string keyword =
+                    SearchText
+                        .Trim()
+                        .ToLowerInvariant();
+
+                query = query.Where(x =>
+                    ContainsKeyword(
+                        x.MaDonThuoc,
+                        keyword
+                    ) ||
+
+                    ContainsKeyword(
+                        x.ChanDoan,
+                        keyword
+                    ) ||
+
+                    ContainsKeyword(
+                        DoctorName(x),
+                        keyword
+                    ) ||
+
+                    ContainsKeyword(
+                        PrescriptionStatusText(
+                            x.TrangThai),
+                        keyword
+                    )
+                );
+            }
+
+            return query
+                .OrderByDescending(x =>
+                    x.NgayKeDon
+                );
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPrescriptions();
+    }
+
+    private async Task LoadPrescriptions()
+    {
+        IsLoading = true;
+        ErrorMessage = string.Empty;
+
+        try
+        {
+            objectSpace?.Dispose();
+
+            objectSpace =
+                ObjectSpaceFactory.CreateObjectSpace(
+                    typeof(DonThuoc)
+                );
+
+            CurrentUserName =
+                await CurrentPatientService
+                    .GetCurrentUserNameAsync();
+
+            CurrentPatient =
+                await CurrentPatientService
+                    .GetCurrentPatientAsync(
+                        objectSpace
+                    );
+
+            if (CurrentPatient == null)
+            {
+                PrescriptionHistory.Clear();
+                return;
+            }
+
+            PrescriptionHistory =
+                (
+                    await CurrentPatientService
+                        .GetPrescriptionHistoryAsync(
+                            objectSpace
+                        )
+                )
+                .OrderByDescending(x =>
+                    x.NgayKeDon
+                )
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            CurrentPatient = null;
+
+            PrescriptionHistory.Clear();
+
+            ErrorMessage =
+                "Đã xảy ra lỗi khi tải đơn thuốc. " +
+                GetErrorMessage(ex);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task ReloadData()
+    {
+        await LoadPrescriptions();
+    }
+
+    private void SetStatusFilter(
+        string status)
+    {
+        StatusFilter = status;
+    }
+
+    private string GetStatusButtonClass(
+        string status)
+    {
+        return StatusFilter == status
+            ? "patient-prescription-filter-button active"
+            : "patient-prescription-filter-button";
+    }
+
+    private void OnFromDateChanged(
+        ChangeEventArgs e)
+    {
+        string value =
+            e.Value?.ToString()
+            ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            FromDate = null;
+            return;
+        }
+
+        if (DateTime.TryParse(
+            value,
+            out DateTime result))
+        {
+            FromDate = result.Date;
+        }
+    }
+
+    private void OnToDateChanged(
+        ChangeEventArgs e)
+    {
+        string value =
+            e.Value?.ToString()
+            ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            ToDate = null;
+            return;
+        }
+
+        if (DateTime.TryParse(
+            value,
+            out DateTime result))
+        {
+            ToDate = result.Date;
+        }
+    }
+
+    private void ResetFilters()
+    {
+        SearchText = string.Empty;
+        StatusFilter = "all";
+        FromDate = null;
+        ToDate = null;
+    }
+
+    private void GoHome()
+    {
+        Navigation.NavigateTo("/patient");
+    }
+
+    private void GoExams()
+    {
+        Navigation.NavigateTo("/patient/exams");
+    }
+
+    private string PrescriptionCode(
+        DonThuoc item)
+    {
+        if (item == null)
+        {
+            return "Chưa có mã đơn";
+        }
+
+        if (!string.IsNullOrWhiteSpace(
+            item.MaDonThuoc))
+        {
+            return item.MaDonThuoc;
+        }
+
+        return $"DT-{item.Oid:0000}";
+    }
+
+    private string DoctorName(
+        DonThuoc item)
+    {
+        if (item?.BacSi == null)
+        {
+            return "Chưa có thông tin";
+        }
+
+        return string.IsNullOrWhiteSpace(
+            item.BacSi.HoTen)
+                ? $"Bác sĩ #{item.BacSi.Oid}"
+                : item.BacSi.HoTen;
+    }
+
+    private string PrescriptionStatusText(
+        TrangThaiDonThuoc status)
+    {
+        return status switch
+        {
+            TrangThaiDonThuoc.ChuaXuat =>
+                "Chờ cấp thuốc",
+
+            TrangThaiDonThuoc.DaXuat =>
+                "Đã cấp thuốc",
+
+            TrangThaiDonThuoc.Huy =>
+                "Đã hủy",
+
+            _ => status.ToString()
+        };
+    }
+
+    private string PrescriptionStatusClass(
+        TrangThaiDonThuoc status)
+    {
+        return status switch
+        {
+            TrangThaiDonThuoc.ChuaXuat =>
+                "patient-status warning",
+
+            TrangThaiDonThuoc.DaXuat =>
+                "patient-status success",
+
+            TrangThaiDonThuoc.Huy =>
+                "patient-status danger",
+
+            _ => "patient-status neutral"
+        };
+    }
+
+    private bool ContainsKeyword(
+        string value,
+        string keyword)
+    {
+        return
+            (value ?? string.Empty)
+                .ToLowerInvariant()
+                .Contains(keyword);
+    }
+
+    private string FormatMoney(
+        decimal value)
+    {
+        return value.ToString("n0") +
+               " đ";
+    }
+
+    private string Text(string value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? "Chưa cập nhật"
+            : value;
+    }
+
+    private string GetErrorMessage(
+        Exception exception)
+    {
+        Exception current =
+            exception;
+
+        while (
+            current.InnerException != null &&
+            !string.IsNullOrWhiteSpace(
+                current.InnerException.Message
+            )
+        )
+        {
+            current =
+                current.InnerException;
+        }
+
+        return current.Message;
+    }
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+}

@@ -1,0 +1,593 @@
+﻿@page "/staff/exams/{Oid:int}"
+
+@using DevExpress.ExpressApp
+@using Microsoft.AspNetCore.Components.Authorization
+@using ybaso.Module.BusinessObjects
+@implements IDisposable
+
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<div class="staff-page">
+    <StaffSidebar ActiveMenu="exams" />
+    <main class="staff-main">
+        <header class="mf-topbar">
+            <div>
+                <h1>Cập nhật ca khám</h1>
+                <p>Nhân viên tiếp nhận thông tin ca khám trước khi chuyển cho bác sĩ.</p>
+            </div>
+
+            <div class="mf-actions">
+                <button class="mf-btn mf-btn-outline" type="button" @onclick="GoExams">
+                    ← Quay lại
+                </button>
+
+                <button class="mf-btn mf-btn-primary" type="button" @onclick="SaveExam">
+                    💾 Lưu ca khám
+                </button>
+            </div>
+        </header>
+
+        @if (!string.IsNullOrWhiteSpace(Message))
+        {
+            <div class="@MessageClass">
+                @Message
+            </div>
+        }
+
+        @if (CaKham == null)
+        {
+            <section class="mf-card">
+                <div class="mf-empty">
+                    Không tìm thấy ca khám.
+                </div>
+            </section>
+        }
+        else
+        {
+            <section class="staff-exam-layout">
+                <div class="staff-exam-main">
+                    <section class="staff-form-card">
+                        <div class="staff-form-header">
+                            <div class="staff-form-avatar">
+                                @GetInitials(SelectedPatientName)
+                            </div>
+
+                            <div>
+                                <h2>@SelectedPatientName</h2>
+                                <p>@ExamSubtitle</p>
+                            </div>
+                        </div>
+
+                        <div class="staff-form-grid">
+                            <div class="staff-form-group full">
+                                <label>Bệnh nhân <span class="required">*</span></label>
+                                <select class="staff-form-control"
+                                        value="@SelectedPatientOid"
+                                        @onchange="OnPatientChanged">
+                                    <option value="0">-- Chọn bệnh nhân --</option>
+
+                                    @foreach (var patient in DanhSachBenhNhan)
+                                    {
+                                        <option value="@patient.Oid">
+                                            @patient.HoTen - @EmptyText(patient.Dienthoai)
+                                        </option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="staff-form-group">
+                                <label>Bác sĩ phụ trách</label>
+                                <select class="staff-form-control"
+                                        value="@SelectedDoctorOid"
+                                        @onchange="OnDoctorChanged">
+                                    <option value="0">-- Chọn bác sĩ --</option>
+
+                                    @foreach (var doctor in DanhSachBacSi)
+                                    {
+                                        <option value="@doctor.Oid">
+                                            @doctor.HoTen - @EmptyText(doctor.ChucVu)
+                                        </option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="staff-form-group">
+                                <label>Ngày khám</label>
+                                <input class="staff-form-control"
+                                       type="datetime-local"
+                                       value="@NgayKhamValue"
+                                       @onchange="OnNgayKhamChanged" />
+                            </div>
+
+                            <div class="staff-form-group">
+                                <label>Tuổi</label>
+                                <input class="staff-form-control"
+                                       type="number"
+                                       min="0"
+                                       @bind="Tuoi" />
+                            </div>
+
+                            <div class="staff-form-group">
+                                <label>Nhiệt độ môi trường</label>
+                                <input class="staff-form-control"
+                                       type="number"
+                                       step="0.1"
+                                       @bind="NhietDoMoiTruong" />
+                            </div>
+
+                            <div class="staff-form-group">
+                                <label>Loại ca khám</label>
+                                <select class="staff-form-control" @bind="LoaiCaKhamValue">
+                                    @foreach (var item in Enum.GetNames(typeof(LoaiCaKham)))
+                                    {
+                                        <option value="@item">@item</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="staff-form-group">
+                                <label>Loại lượt khám</label>
+                                <select class="staff-form-control" @bind="LoaiLuotKhamValue">
+                                    @foreach (var item in Enum.GetNames(typeof(LoaiLuotKham)))
+                                    {
+                                        <option value="@item">@item</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="staff-form-group">
+                                <label>Trạng thái</label>
+                                <select class="staff-form-control" @bind="TrangThaiValue">
+                                    @foreach (var item in Enum.GetNames(typeof(TrangThaiCaKham)))
+                                    {
+                                        <option value="@item">@item</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="staff-form-group full">
+                                <label>Lý do khám</label>
+                                <textarea class="staff-form-control"
+                                          placeholder="Nhập lý do bệnh nhân đến khám..."
+                                          @bind="LyDoKham"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="staff-form-footer">
+                            <button class="mf-btn mf-btn-outline" type="button" @onclick="GoExams">
+                                Hủy
+                            </button>
+
+                            <button class="mf-btn mf-btn-outline" type="button" @onclick="SaveAndOpenDoctor">
+                                Lưu và chuyển bác sĩ khám
+                            </button>
+
+                            <button class="mf-btn mf-btn-primary" type="button" @onclick="SaveExam">
+                                Lưu ca khám
+                            </button>
+                        </div>
+                    </section>
+                </div>
+
+                <aside class="staff-exam-side">
+                    <section class="staff-form-card">
+                        <div class="staff-section-head-simple">
+                            <h2>Thêm nhanh bệnh nhân</h2>
+                            <p>Nếu bệnh nhân chưa có hồ sơ, nhập nhanh tại đây rồi gắn vào ca khám.</p>
+                        </div>
+
+                        <div class="staff-form-grid one">
+                            <div class="staff-form-group">
+                                <label>Họ</label>
+                                <input class="staff-form-control"
+                                       placeholder="VD: Nguyễn Văn"
+                                       @bind="NewHo" />
+                            </div>
+
+                            <div class="staff-form-group">
+                                <label>Tên</label>
+                                <input class="staff-form-control"
+                                       placeholder="VD: An"
+                                       @bind="NewTen" />
+                            </div>
+
+                            <div class="staff-form-group">
+                                <label>Ngày sinh</label>
+                                <input class="staff-form-control"
+                                       type="date"
+                                       value="@NewNgaySinhValue"
+                                       @onchange="OnNewNgaySinhChanged" />
+                            </div>
+
+                            <div class="staff-form-group">
+                                <label>Giới tính</label>
+                                <select class="staff-form-control" @bind="NewGioiTinhValue">
+                                    <option value="1">Nam</option>
+                                    <option value="0">Nữ</option>
+                                </select>
+                            </div>
+
+                            <div class="staff-form-group">
+                                <label>Điện thoại</label>
+                                <input class="staff-form-control"
+                                       placeholder="Nhập số điện thoại..."
+                                       @bind="NewDienThoai" />
+                            </div>
+
+                            <div class="staff-form-group">
+                                <label>Địa chỉ</label>
+                                <textarea class="staff-form-control"
+                                          placeholder="Nhập địa chỉ..."
+                                          @bind="NewDiaChi"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="staff-form-footer compact">
+                            <button class="mf-btn mf-btn-primary" type="button" @onclick="CreateQuickPatient">
+                                + Thêm và chọn bệnh nhân
+                            </button>
+                        </div>
+                    </section>
+
+                    <section class="staff-form-card mt-16">
+                        <div class="staff-section-head-simple">
+                            <h2>Thông tin nhanh</h2>
+                            <p>Tóm tắt trạng thái hiện tại của ca khám.</p>
+                        </div>
+
+                        <div class="staff-info-list">
+                            <div>
+                                <span>Mã ca khám</span>
+                                <strong>CK-@CaKham.Oid.ToString("0000")</strong>
+                            </div>
+
+                            <div>
+                                <span>Bệnh nhân</span>
+                                <strong>@SelectedPatientName</strong>
+                            </div>
+
+                            <div>
+                                <span>Bác sĩ</span>
+                                <strong>@SelectedDoctorName</strong>
+                            </div>
+
+                            <div>
+                                <span>Trạng thái</span>
+                                <strong>@TrangThaiValue</strong>
+                            </div>
+                        </div>
+                    </section>
+                </aside>
+            </section>
+        }
+    </main>
+</div>
+
+@code {
+    [Parameter]
+    public int Oid { get; set; }
+
+    private IObjectSpace objectSpace;
+
+    private Cakham CaKham;
+
+    private string CurrentUserName = "Nhân viên";
+
+    private string Message = "";
+    private string MessageClass = "mf-alert mf-alert-success";
+
+    private List<Benhnhan> DanhSachBenhNhan = new();
+    private List<Nhanvien> DanhSachBacSi = new();
+
+    private int SelectedPatientOid = 0;
+    private int SelectedDoctorOid = 0;
+
+    private DateTime NgayKham = DateTime.Now;
+    private int Tuoi = 0;
+    private double NhietDoMoiTruong = 26.3;
+    private string LoaiCaKhamValue = LoaiCaKham.TrucTiep.ToString();
+    private string LoaiLuotKhamValue = LoaiLuotKham.BenhNhanMoi.ToString();
+    private string TrangThaiValue = TrangThaiCaKham.ChoKham.ToString();
+    private string LyDoKham = "";
+
+    private string NewHo = "";
+    private string NewTen = "";
+    private DateTime NewNgaySinh = DateTime.Today;
+    private string NewGioiTinhValue = "1";
+    private string NewDienThoai = "";
+    private string NewDiaChi = "";
+
+    private string NgayKhamValue => NgayKham.ToString("yyyy-MM-ddTHH:mm");
+    private string NewNgaySinhValue => NewNgaySinh.ToString("yyyy-MM-dd");
+
+    private string SelectedPatientName
+    {
+        get
+        {
+            Benhnhan patient = DanhSachBenhNhan.FirstOrDefault(x => x.Oid == SelectedPatientOid);
+            return patient?.HoTen ?? "Chưa chọn bệnh nhân";
+        }
+    }
+
+    private string SelectedDoctorName
+    {
+        get
+        {
+            Nhanvien doctor = DanhSachBacSi.FirstOrDefault(x => x.Oid == SelectedDoctorOid);
+            return doctor?.HoTen ?? "Chưa chọn bác sĩ";
+        }
+    }
+
+    private string ExamSubtitle
+    {
+        get
+        {
+            return $"{NgayKham:dd/MM/yyyy HH:mm} • {TrangThaiValue}";
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        objectSpace = ObjectSpaceFactory.CreateObjectSpace(typeof(Cakham));
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        CurrentUserName = authState.User?.Identity?.Name ?? "Nhân viên";
+
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        CaKham = objectSpace.GetObjectByKey<Cakham>(Oid);
+
+        DanhSachBenhNhan = objectSpace.GetObjects<Benhnhan>()
+            .OrderBy(x => x.Ten)
+            .ThenBy(x => x.Ho)
+            .ToList();
+
+        DanhSachBacSi = objectSpace.GetObjects<Nhanvien>()
+            .OrderBy(x => x.HoTen)
+            .ToList();
+
+        if (CaKham == null)
+            return;
+
+        SelectedPatientOid = CaKham.BenhNhan?.Oid ?? 0;
+        SelectedDoctorOid = CaKham.Bacsi?.Oid ?? 0;
+        NgayKham = CaKham.NgayCT == DateTime.MinValue ? DateTime.Now : CaKham.NgayCT;
+        Tuoi = CaKham.Tuoi;
+        NhietDoMoiTruong = CaKham.NhietDoMoiTruong;
+        LoaiCaKhamValue = CaKham.LoaiCakham.ToString();
+        LoaiLuotKhamValue = CaKham.LoaiLuotKham.ToString();
+        TrangThaiValue = CaKham.TrangThai.ToString();
+        LyDoKham = CaKham.LydoKham ?? "";
+    }
+
+    private void OnPatientChanged(ChangeEventArgs e)
+    {
+        int.TryParse(e.Value?.ToString(), out SelectedPatientOid);
+
+        Benhnhan patient = DanhSachBenhNhan.FirstOrDefault(x => x.Oid == SelectedPatientOid);
+
+        if (patient != null)
+        {
+            Tuoi = TinhTuoi(patient.Ngaysinh);
+
+            if (LoaiLuotKhamValue == LoaiLuotKham.BenhNhanMoi.ToString())
+            {
+                bool daTungKham = objectSpace.GetObjects<Cakham>()
+                    .Any(x => x.BenhNhan != null && x.BenhNhan.Oid == patient.Oid && x.Oid != Oid);
+
+                LoaiLuotKhamValue = daTungKham
+                    ? LoaiLuotKham.BenhNhanCu.ToString()
+                    : LoaiLuotKham.BenhNhanMoi.ToString();
+            }
+        }
+    }
+
+    private void OnDoctorChanged(ChangeEventArgs e)
+    {
+        int.TryParse(e.Value?.ToString(), out SelectedDoctorOid);
+    }
+
+    private void OnNgayKhamChanged(ChangeEventArgs e)
+    {
+        string value = e.Value?.ToString() ?? "";
+
+        if (DateTime.TryParse(value, out DateTime result))
+        {
+            NgayKham = result;
+        }
+    }
+
+    private void OnNewNgaySinhChanged(ChangeEventArgs e)
+    {
+        string value = e.Value?.ToString() ?? "";
+
+        if (DateTime.TryParse(value, out DateTime result))
+        {
+            NewNgaySinh = result;
+        }
+    }
+
+    private bool ValidateExam()
+    {
+        Message = "";
+
+        if (CaKham == null)
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Không tìm thấy ca khám để lưu.";
+            return false;
+        }
+
+        if (SelectedPatientOid <= 0)
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Vui lòng chọn bệnh nhân cho ca khám.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool SaveCore()
+    {
+        if (!ValidateExam())
+            return false;
+
+        Benhnhan patient = objectSpace.GetObjectByKey<Benhnhan>(SelectedPatientOid);
+        Nhanvien doctor = SelectedDoctorOid > 0
+            ? objectSpace.GetObjectByKey<Nhanvien>(SelectedDoctorOid)
+            : null;
+
+        CaKham.BenhNhan = patient;
+        CaKham.Bacsi = doctor;
+        CaKham.NgayCT = NgayKham;
+        CaKham.Tuoi = Tuoi;
+        CaKham.NhietDoMoiTruong = NhietDoMoiTruong;
+        CaKham.LoaiCakham = Enum.Parse<LoaiCaKham>(LoaiCaKhamValue);
+        CaKham.LoaiLuotKham = Enum.Parse<LoaiLuotKham>(LoaiLuotKhamValue);
+        CaKham.TrangThai = Enum.Parse<TrangThaiCaKham>(TrangThaiValue);
+        CaKham.LydoKham = LyDoKham?.Trim();
+
+        objectSpace.CommitChanges();
+
+        return true;
+    }
+
+    private void SaveExam()
+    {
+        try
+        {
+            if (!SaveCore())
+                return;
+
+            MessageClass = "mf-alert mf-alert-success";
+            Message = "Đã lưu thông tin ca khám.";
+        }
+        catch (Exception ex)
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Lỗi khi lưu ca khám: " + ex.Message;
+        }
+    }
+
+    private void SaveAndOpenDoctor()
+    {
+        try
+        {
+            if (!SaveCore())
+                return;
+
+            Navigation.NavigateTo($"/doctor/exams/{CaKham.Oid}");
+        }
+        catch (Exception ex)
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Lỗi khi chuyển sang màn hình bác sĩ: " + ex.Message;
+        }
+    }
+
+    private void CreateQuickPatient()
+    {
+        try
+        {
+            Message = "";
+
+            if (string.IsNullOrWhiteSpace(NewHo))
+            {
+                MessageClass = "mf-alert mf-alert-danger";
+                Message = "Vui lòng nhập họ bệnh nhân.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(NewTen))
+            {
+                MessageClass = "mf-alert mf-alert-danger";
+                Message = "Vui lòng nhập tên bệnh nhân.";
+                return;
+            }
+
+            Benhnhan patient = objectSpace.CreateObject<Benhnhan>();
+
+            patient.Ho = NewHo.Trim();
+            patient.Ten = NewTen.Trim();
+            patient.Ngaysinh = NewNgaySinh;
+            patient.Gioitinh = int.Parse(NewGioiTinhValue);
+            patient.Dienthoai = NewDienThoai?.Trim();
+            patient.Diachi = NewDiaChi?.Trim();
+
+            objectSpace.CommitChanges();
+
+            DanhSachBenhNhan = objectSpace.GetObjects<Benhnhan>()
+                .OrderBy(x => x.Ten)
+                .ThenBy(x => x.Ho)
+                .ToList();
+
+            SelectedPatientOid = patient.Oid;
+            Tuoi = TinhTuoi(patient.Ngaysinh);
+
+            NewHo = "";
+            NewTen = "";
+            NewNgaySinh = DateTime.Today;
+            NewGioiTinhValue = "1";
+            NewDienThoai = "";
+            NewDiaChi = "";
+
+            MessageClass = "mf-alert mf-alert-success";
+            Message = "Đã thêm bệnh nhân mới và gắn vào ca khám.";
+        }
+        catch (Exception ex)
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Lỗi khi thêm nhanh bệnh nhân: " + ex.Message;
+        }
+    }
+
+    private int TinhTuoi(DateTime ngaySinh)
+    {
+        if (ngaySinh == DateTime.MinValue)
+            return 0;
+
+        int tuoi = DateTime.Today.Year - ngaySinh.Year;
+
+        if (ngaySinh.Date > DateTime.Today.AddYears(-tuoi))
+            tuoi--;
+
+        return tuoi < 0 ? 0 : tuoi;
+    }
+
+    private string EmptyText(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "--" : value;
+    }
+
+    private string GetInitials(string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+            return "NV";
+
+        string[] parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length == 1)
+            return parts[0].Substring(0, Math.Min(2, parts[0].Length)).ToUpperInvariant();
+
+        return $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant();
+    }
+
+    private void GoPatients() => Navigation.NavigateTo("/staff/patients");
+    private void GoExams() => Navigation.NavigateTo("/staff/exams");
+    private void GoPrescriptions() => Navigation.NavigateTo("/staff/prescriptions");
+    private void GoMedicines() => Navigation.NavigateTo("/staff/medicines");
+    private void GoImports() => Navigation.NavigateTo("/staff/imports");
+    private void GoExports() => Navigation.NavigateTo("/staff/exports");
+    private void GoReports() => Navigation.NavigateTo("/staff/reports");
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+}

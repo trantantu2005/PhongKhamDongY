@@ -1,0 +1,518 @@
+﻿@page "/staff/herbs"
+
+@using System.Linq
+@using DevExpress.ExpressApp
+@using Microsoft.JSInterop
+@using ybaso.Module.BusinessObjects
+@implements IDisposable
+
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<div class="staff-page">
+    <StaffSidebar ActiveMenu="herbs" />
+
+    <main class="staff-main">
+        <header class="mf-topbar">
+            <div>
+                <h1>Dược liệu</h1>
+
+                <p>
+                    Quản lý danh mục dược liệu Đông y, số lượng tồn,
+                    tồn tối thiểu và giá nhập gần nhất.
+                </p>
+            </div>
+
+            <div class="mf-actions">
+                <div class="mf-search">
+                    <span>🔍</span>
+
+                    <input placeholder="Tìm mã, tên dược liệu hoặc đơn vị tính..."
+                           @bind="SearchText"
+                           @bind:event="oninput" />
+                </div>
+
+                <button class="mf-btn mf-btn-outline"
+                        type="button"
+                        @onclick="ReloadData">
+                    Làm mới
+                </button>
+
+                <button class="mf-btn mf-btn-primary"
+                        type="button"
+                        @onclick="CreateHerb">
+                    + Thêm dược liệu
+                </button>
+            </div>
+        </header>
+
+        @if (!string.IsNullOrWhiteSpace(Message))
+        {
+            <div class="@MessageClass">
+                @Message
+            </div>
+        }
+
+        <section class="staff-stats">
+            <div class="staff-stat-card">
+                <div class="staff-stat-icon teal">🌿</div>
+
+                <div>
+                    <p>Tổng dược liệu</p>
+                    <h3>@TongDuocLieu</h3>
+                </div>
+            </div>
+
+            <div class="staff-stat-card">
+                <div class="staff-stat-icon green">✅</div>
+
+                <div>
+                    <p>Đang sử dụng</p>
+                    <h3>@DuocLieuDangDung</h3>
+                </div>
+            </div>
+
+            <div class="staff-stat-card">
+                <div class="staff-stat-icon orange">⚠️</div>
+
+                <div>
+                    <p>Cần nhập thêm</p>
+                    <h3>@DuocLieuSapHet</h3>
+                </div>
+            </div>
+
+            <div class="staff-stat-card">
+                <div class="staff-stat-icon blue">📋</div>
+
+                <div>
+                    <p>Đang hiển thị</p>
+                    <h3>@DanhSachLoc.Count()</h3>
+                </div>
+            </div>
+        </section>
+
+        <section class="mf-card">
+            <div class="mf-card-head">
+                <div>
+                    <h2>Danh sách dược liệu</h2>
+
+                    <p>
+                        Hiển thị @DanhSachLoc.Count()
+                        trong tổng số @TongDuocLieu dược liệu.
+                    </p>
+                </div>
+
+                <div class="staff-filter-group">
+                    <button class="@GetFilterButtonClass("all")"
+                            type="button"
+                            @onclick='() => SetFilter("all")'>
+                        Tất cả
+                    </button>
+
+                    <button class="@GetFilterButtonClass("active")"
+                            type="button"
+                            @onclick='() => SetFilter("active")'>
+                        Đang dùng
+                    </button>
+
+                    <button class="@GetFilterButtonClass("low")"
+                            type="button"
+                            @onclick='() => SetFilter("low")'>
+                        Sắp hết
+                    </button>
+
+                    <button class="@GetFilterButtonClass("inactive")"
+                            type="button"
+                            @onclick='() => SetFilter("inactive")'>
+                        Ngừng dùng
+                    </button>
+                </div>
+            </div>
+
+            <div class="staff-table-wrapper">
+                <table class="mf-table">
+                    <thead>
+                        <tr>
+                            <th>Dược liệu</th>
+                            <th>Đơn vị tính</th>
+                            <th>Tồn kho</th>
+                            <th>Tồn tối thiểu</th>
+                            <th>Giá nhập gần nhất</th>
+                            <th>Trạng thái kho</th>
+                            <th>Sử dụng</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @foreach (var item in DanhSachLoc)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="staff-cell-main">
+                                        <div class="staff-circle">
+                                            D
+                                        </div>
+
+                                        <div>
+                                            <strong>
+                                                @EmptyText(item.TenDuocLieu)
+                                            </strong>
+
+                                            <small>
+                                                @EmptyText(item.MaDuocLieu)
+                                            </small>
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <td>
+                                    @GetDonViTinh(item)
+                                </td>
+
+                                <td>
+                                    <strong>
+                                        @FormatNumber(item.SoLuongTon)
+                                    </strong>
+                                </td>
+
+                                <td>
+                                    @FormatNumber(item.TonToiThieu)
+                                </td>
+
+                                <td>
+                                    <strong>
+                                        @FormatMoney(item.GiaNhapGanNhat)
+                                    </strong>
+                                </td>
+
+                                <td>
+                                    <span class="@GetStockStatusClass(item)">
+                                        @GetStockStatusText(item)
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <span class="@GetUseStatusClass(item)">
+                                        @(item.SuDung
+                                            ? "Đang dùng"
+                                            : "Ngừng dùng")
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <div class="staff-table-actions">
+                                        <button class="staff-table-btn light"
+                                                type="button"
+                                                title="Xem dược liệu"
+                                                @onclick="() => ViewHerb(item.Oid)">
+                                            Xem
+                                        </button>
+
+                                        <button class="staff-table-btn"
+                                                type="button"
+                                                title="Cập nhật dược liệu"
+                                                @onclick="() => EditHerb(item.Oid)">
+                                            Cập nhật
+                                        </button>
+
+                                        <button class="staff-table-btn danger"
+                                                type="button"
+                                                title="Xóa dược liệu"
+                                                @onclick="() => DeleteHerb(
+                                                                                                    item.Oid,
+                                                                                                    item.TenDuocLieu)">
+Xóa
+</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (!DanhSachLoc.Any())
+            {
+                <div class="mf-empty">
+                    Không tìm thấy dược liệu phù hợp.
+                </div>
+            }
+        </section>
+    </main>
+</div>
+
+@code {
+    private IObjectSpace objectSpace;
+
+    private string SearchText = string.Empty;
+    private string FilterMode = "all";
+
+    private string Message = string.Empty;
+    private string MessageClass = "mf-alert mf-alert-success";
+
+    private List<DuocLieu> DanhSachDuocLieu = new();
+
+    private int TongDuocLieu =>
+        DanhSachDuocLieu.Count;
+
+    private int DuocLieuDangDung =>
+        DanhSachDuocLieu.Count(x => x.SuDung);
+
+    private int DuocLieuSapHet =>
+        DanhSachDuocLieu.Count(IsLowStock);
+
+    private IEnumerable<DuocLieu> DanhSachLoc
+    {
+        get
+        {
+            IEnumerable<DuocLieu> query =
+                DanhSachDuocLieu
+                    .OrderBy(x => x.TenDuocLieu);
+
+            if (FilterMode == "active")
+            {
+                query = query.Where(x => x.SuDung);
+            }
+            else if (FilterMode == "inactive")
+            {
+                query = query.Where(x => !x.SuDung);
+            }
+            else if (FilterMode == "low")
+            {
+                query = query.Where(IsLowStock);
+            }
+
+            if (string.IsNullOrWhiteSpace(SearchText))
+                return query;
+
+            string keyword =
+                SearchText.Trim().ToLowerInvariant();
+
+            return query.Where(x =>
+                (x.MaDuocLieu ?? string.Empty)
+                    .ToLowerInvariant()
+                    .Contains(keyword) ||
+
+                (x.TenDuocLieu ?? string.Empty)
+                    .ToLowerInvariant()
+                    .Contains(keyword) ||
+
+                GetDonViTinh(x)
+                    .ToLowerInvariant()
+                    .Contains(keyword)
+            );
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        objectSpace =
+            ObjectSpaceFactory.CreateObjectSpace(
+                typeof(DuocLieu)
+            );
+
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        DanhSachDuocLieu =
+            objectSpace
+                .GetObjects<DuocLieu>()
+                .OrderBy(x => x.TenDuocLieu)
+                .ToList();
+    }
+
+    private void ReloadData()
+    {
+        try
+        {
+            objectSpace.Refresh();
+            LoadData();
+
+            MessageClass = "mf-alert mf-alert-success";
+            Message = "Đã làm mới danh sách dược liệu.";
+        }
+        catch (Exception ex)
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Không thể làm mới dữ liệu: " + ex.Message;
+        }
+    }
+
+    private void CreateHerb()
+    {
+        Navigation.NavigateTo("/staff/herbs/new");
+    }
+
+    private void ViewHerb(int oid)
+    {
+        Navigation.NavigateTo(
+            $"/staff/herbs/view/{oid}"
+        );
+    }
+
+    private void EditHerb(int oid)
+    {
+        Navigation.NavigateTo(
+            $"/staff/herbs/edit/{oid}"
+        );
+    }
+
+    private async Task DeleteHerb(
+        int oid,
+        string tenDuocLieu)
+    {
+        Message = string.Empty;
+
+        string displayName =
+            string.IsNullOrWhiteSpace(tenDuocLieu)
+                ? "dược liệu này"
+                : $"dược liệu \"{tenDuocLieu}\"";
+
+        bool confirmed =
+            await JS.InvokeAsync<bool>(
+                "confirm",
+                $"Bạn có chắc muốn xóa {displayName}? " +
+                "Thao tác này không thể hoàn tác."
+            );
+
+        if (!confirmed)
+            return;
+
+        try
+        {
+            DuocLieu duocLieu =
+                objectSpace.GetObjectByKey<DuocLieu>(oid);
+
+            if (duocLieu == null)
+            {
+                MessageClass = "mf-alert mf-alert-danger";
+                Message = "Không tìm thấy dược liệu cần xóa.";
+                return;
+            }
+
+            bool daDungTrongThuoc =
+                objectSpace
+                    .GetObjects<ThanhPhanThuoc>()
+                    .Any(x =>
+                        x.DuocLieu != null &&
+                        x.DuocLieu.Oid == oid
+                    );
+
+            bool daDungTrongPhieuNhap =
+                objectSpace
+                    .GetObjects<ChiTietPhieuNhap>()
+                    .Any(x =>
+                        x.DuocLieu != null &&
+                        x.DuocLieu.Oid == oid
+                    );
+
+            if (daDungTrongThuoc || daDungTrongPhieuNhap)
+            {
+                MessageClass = "mf-alert mf-alert-danger";
+
+                Message =
+                    "Không thể xóa dược liệu này vì đã được sử dụng " +
+                    "trong thành phần thuốc hoặc phiếu nhập kho. " +
+                    "Bạn nên cập nhật trạng thái thành Ngừng dùng.";
+                return;
+            }
+
+            objectSpace.Delete(duocLieu);
+            objectSpace.CommitChanges();
+
+            LoadData();
+
+            MessageClass = "mf-alert mf-alert-success";
+            Message = $"Đã xóa {displayName}.";
+        }
+        catch (Exception ex)
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+
+            Message =
+                "Không thể xóa dược liệu. " +
+                "Dược liệu có thể đang được liên kết với dữ liệu khác. " +
+                "Chi tiết: " + ex.Message;
+        }
+    }
+
+    private void SetFilter(string mode)
+    {
+        FilterMode = mode;
+    }
+
+    private string GetFilterButtonClass(string mode)
+    {
+        return FilterMode == mode
+            ? "staff-filter-btn active"
+            : "staff-filter-btn";
+    }
+
+    private bool IsLowStock(DuocLieu item)
+    {
+        if (item == null || !item.SuDung)
+            return false;
+
+        return item.SoLuongTon <= item.TonToiThieu;
+    }
+
+    private string GetDonViTinh(DuocLieu item)
+    {
+        return item?.DonViTinh?.TenDvt ?? "--";
+    }
+
+    private string GetStockStatusText(DuocLieu item)
+    {
+        if (item == null || item.SoLuongTon <= 0)
+            return "Hết hàng";
+
+        if (item.SoLuongTon <= item.TonToiThieu)
+            return "Sắp hết";
+
+        return "Còn hàng";
+    }
+
+    private string GetStockStatusClass(DuocLieu item)
+    {
+        if (item == null || item.SoLuongTon <= 0)
+            return "staff-status danger";
+
+        if (item.SoLuongTon <= item.TonToiThieu)
+            return "staff-status warning";
+
+        return "staff-status success";
+    }
+
+    private string GetUseStatusClass(DuocLieu item)
+    {
+        return item != null && item.SuDung
+            ? "staff-status success"
+            : "staff-status neutral";
+    }
+
+    private string EmptyText(string value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? "--"
+            : value;
+    }
+
+    private string FormatMoney(decimal value)
+    {
+        return value.ToString("n0") + " đ";
+    }
+
+    private string FormatNumber(decimal value)
+    {
+        return value.ToString("n0");
+    }
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+}   

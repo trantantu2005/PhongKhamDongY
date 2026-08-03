@@ -1,0 +1,339 @@
+﻿@page "/staff/patients"
+
+@using DevExpress.ExpressApp
+@using Microsoft.AspNetCore.Components.Authorization
+@using ybaso.Module.BusinessObjects
+@implements IDisposable
+
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<div class="staff-page">
+    <StaffSidebar ActiveMenu="patients" />
+
+    <main class="staff-main">
+        <header class="mf-topbar">
+            <div>
+                <h1>Danh sách bệnh nhân</h1>
+                <p>Tra cứu, thêm mới và tạo ca khám cho bệnh nhân.</p>
+            </div>
+
+            <div class="mf-actions">
+                <div class="mf-search">
+                    <span>🔍</span>
+                    <input placeholder="Tìm tên, số điện thoại, email..."
+                           @bind="SearchText"
+                           @bind:event="oninput" />
+                </div>
+
+                <button class="mf-btn mf-btn-outline" @onclick="ReloadData">
+                    Làm mới
+                </button>
+
+                <button class="mf-btn mf-btn-primary" @onclick="CreatePatient">
+                    + Thêm bệnh nhân
+                </button>
+            </div>
+        </header>
+
+        @if (!string.IsNullOrWhiteSpace(Message))
+        {
+            <div class="@MessageClass">
+                @Message
+            </div>
+        }
+
+        <section class="staff-stats">
+            <div class="staff-stat-card">
+                <div class="staff-stat-icon teal">👥</div>
+                <div>
+                    <p>Tổng bệnh nhân</p>
+                    <h3>@TongBenhNhan</h3>
+                </div>
+            </div>
+
+            <div class="staff-stat-card">
+                <div class="staff-stat-icon blue">🩺</div>
+                <div>
+                    <p>Đã có ca khám</p>
+                    <h3>@BenhNhanCoCaKham</h3>
+                </div>
+            </div>
+
+            <div class="staff-stat-card">
+                <div class="staff-stat-icon orange">📋</div>
+                <div>
+                    <p>Đang hiển thị</p>
+                    <h3>@DanhSachLoc.Count()</h3>
+                </div>
+            </div>
+
+            <div class="staff-stat-card">
+                <div class="staff-stat-icon green">📅</div>
+                <div>
+                    <p>Ca khám hôm nay</p>
+                    <h3>@CaKhamHomNay</h3>
+                </div>
+            </div>
+        </section>
+
+        <section class="mf-card">
+            <div class="mf-card-head">
+                <div>
+                    <h2>Bệnh nhân</h2>
+                    <p>Hiển thị @DanhSachLoc.Count() trong tổng số @TongBenhNhan bệnh nhân.</p>
+                </div>
+            </div>
+
+            <table class="mf-table">
+                <thead>
+                    <tr>
+                        <th>Họ tên</th>
+                        <th>Ngày sinh</th>
+                        <th>Giới tính</th>
+                        <th>Điện thoại</th>
+                        <th>Email</th>
+                        <th>Số CCCD/CMND</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var item in DanhSachLoc)
+                    {
+                        <tr>
+                            <td>
+                                <div class="staff-cell-main">
+                                    <div class="staff-circle">
+                                        @GetInitials(item.HoTen)
+                                    </div>
+
+                                    <div>
+                                        <strong>@item.HoTen</strong>
+                                        <small>ID: BN-@item.Oid.ToString("0000")</small>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <td>@FormatDate(item.Ngaysinh)</td>
+                            <td>@GetGioiTinh(item)</td>
+                            <td>@EmptyText(item.Dienthoai)</td>
+                            <td>@EmptyText(item.Email)</td>
+                            <td>@EmptyText(item.SoCMND)</td>
+
+                            <td>
+                                <button class="staff-table-btn" @onclick="() => OpenPatient(item.Oid)">
+                                    Hồ sơ
+                                </button>
+
+                                <button class="staff-table-btn light" @onclick="() => CreateExamForPatient(item.Oid)">
+                                    Tạo ca khám
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (!DanhSachLoc.Any())
+            {
+                <div class="mf-empty">
+                    Không tìm thấy bệnh nhân phù hợp.
+                </div>
+            }
+        </section>
+    </main>
+</div>
+
+@code {
+    private IObjectSpace objectSpace;
+
+    private string CurrentUserName = "Nhân viên";
+    private string SearchText = "";
+
+    private string Message = "";
+    private string MessageClass = "mf-alert mf-alert-success";
+
+    private List<Benhnhan> DanhSachBenhNhan = new();
+    private List<Cakham> DanhSachCaKham = new();
+
+    private int TongBenhNhan => DanhSachBenhNhan.Count;
+
+    private int BenhNhanCoCaKham
+    {
+        get
+        {
+            return DanhSachCaKham
+                .Where(x => x.BenhNhan != null)
+                .Select(x => x.BenhNhan.Oid)
+                .Distinct()
+                .Count();
+        }
+    }
+
+    private int CaKhamHomNay => DanhSachCaKham.Count(x => x.NgayCT.Date == DateTime.Today);
+
+    private IEnumerable<Benhnhan> DanhSachLoc
+    {
+        get
+        {
+            IEnumerable<Benhnhan> query = DanhSachBenhNhan
+                .OrderBy(x => x.Ten)
+                .ThenBy(x => x.Ho);
+
+            if (string.IsNullOrWhiteSpace(SearchText))
+                return query;
+
+            string keyword = SearchText.Trim().ToLowerInvariant();
+
+            return query.Where(x =>
+                (x.HoTen ?? "").ToLowerInvariant().Contains(keyword) ||
+                (x.Dienthoai ?? "").ToLowerInvariant().Contains(keyword) ||
+                (x.Email ?? "").ToLowerInvariant().Contains(keyword) ||
+                (x.SoCMND ?? "").ToLowerInvariant().Contains(keyword)
+            );
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        objectSpace = ObjectSpaceFactory.CreateObjectSpace(typeof(Benhnhan));
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        CurrentUserName = authState.User?.Identity?.Name ?? "Nhân viên";
+
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        DanhSachBenhNhan = objectSpace.GetObjects<Benhnhan>()
+            .OrderBy(x => x.Ten)
+            .ThenBy(x => x.Ho)
+            .ToList();
+
+        DanhSachCaKham = objectSpace.GetObjects<Cakham>()
+            .OrderByDescending(x => x.NgayCT)
+            .ToList();
+    }
+
+    private void ReloadData()
+    {
+        objectSpace.Refresh();
+        LoadData();
+
+        MessageClass = "mf-alert mf-alert-success";
+        Message = "Đã làm mới danh sách bệnh nhân.";
+    }
+
+    private void CreatePatient()
+    {
+        Navigation.NavigateTo("/staff/patients/new");
+    }
+
+    private void OpenPatient(int oid)
+    {
+        Navigation.NavigateTo($"/staff/patients/edit/{oid}");
+    }
+
+    private void CreateExamForPatient(int benhNhanOid)
+    {
+        try
+        {
+            Benhnhan benhNhan = objectSpace.GetObjectByKey<Benhnhan>(benhNhanOid);
+
+            if (benhNhan == null)
+            {
+                MessageClass = "mf-alert mf-alert-danger";
+                Message = "Không tìm thấy bệnh nhân để tạo ca khám.";
+                return;
+            }
+
+            Cakham caKham = objectSpace.CreateObject<Cakham>();
+
+            caKham.BenhNhan = benhNhan;
+            caKham.NgayCT = DateTime.Now;
+            caKham.TrangThai = TrangThaiCaKham.ChoKham;
+            caKham.LoaiCakham = LoaiCaKham.TrucTiep;
+            caKham.LoaiLuotKham = LoaiLuotKham.BenhNhanCu;
+            caKham.NhietDoMoiTruong = 26.3;
+            caKham.Tuoi = TinhTuoi(benhNhan.Ngaysinh);
+
+            objectSpace.CommitChanges();
+
+            Navigation.NavigateTo($"/staff/exams/{caKham.Oid}");
+        }
+        catch (Exception ex)
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Lỗi khi tạo ca khám: " + ex.Message;
+        }
+    }
+
+    private int TinhTuoi(DateTime ngaySinh)
+    {
+        if (ngaySinh == DateTime.MinValue)
+            return 0;
+
+        int tuoi = DateTime.Today.Year - ngaySinh.Year;
+
+        if (ngaySinh.Date > DateTime.Today.AddYears(-tuoi))
+            tuoi--;
+
+        return tuoi < 0 ? 0 : tuoi;
+    }
+
+    private string FormatDate(DateTime date)
+    {
+        if (date == DateTime.MinValue)
+            return "--";
+
+        return date.ToString("dd/MM/yyyy");
+    }
+
+    private string GetGioiTinh(Benhnhan item)
+    {
+        if (item == null)
+            return "--";
+
+        if (item.Gioitinh == 1)
+            return "Nam";
+
+        if (item.Gioitinh == 0)
+            return "Nữ";
+
+        return "--";
+    }
+
+    private string EmptyText(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "--" : value;
+    }
+
+    private string GetInitials(string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+            return "NV";
+
+        string[] parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length == 1)
+            return parts[0].Substring(0, Math.Min(2, parts[0].Length)).ToUpperInvariant();
+
+        return $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant();
+    }
+
+    private void GoPatients() => Navigation.NavigateTo("/staff/patients");
+    private void GoExams() => Navigation.NavigateTo("/staff/exams");
+    private void GoPrescriptions() => Navigation.NavigateTo("/staff/prescriptions");
+    private void GoMedicines() => Navigation.NavigateTo("/staff/medicines");
+    private void GoImports() => Navigation.NavigateTo("/staff/imports");
+    private void GoExports() => Navigation.NavigateTo("/staff/exports");
+    private void GoReports() => Navigation.NavigateTo("/staff/reports");
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+}

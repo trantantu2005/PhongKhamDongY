@@ -1,0 +1,907 @@
+﻿@page "/patient"
+
+@using System.Linq
+@using DevExpress.ExpressApp
+@using ybaso.Blazor.Server.Services
+@using ybaso.Module.BusinessObjects
+@implements IDisposable
+
+@attribute [Authorize(Roles = "BenhNhan")]
+
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject CurrentPatientService CurrentPatientService
+@inject NavigationManager Navigation
+
+<PageTitle>Trang chủ bệnh nhân</PageTitle>
+
+<div class="patient-page">
+    <PatientSidebar ActiveMenu="home"
+                    DisplayName="@SidebarName" />
+
+    <main class="patient-main">
+        @if (IsLoading)
+        {
+            <section class="patient-loading">
+                <div class="patient-loading-spinner"></div>
+
+                <strong>Đang tải thông tin của bạn...</strong>
+
+                <span>
+                    Hệ thống đang xác định hồ sơ bệnh nhân
+                    thuộc tài khoản hiện tại.
+                </span>
+            </section>
+        }
+        else if (!string.IsNullOrWhiteSpace(ErrorMessage))
+        {
+            <section class="patient-message-card error">
+                <div class="patient-message-icon">
+                    ⚠️
+                </div>
+
+                <div>
+                    <h2>Không thể tải dữ liệu</h2>
+
+                    <p>@ErrorMessage</p>
+
+                    <button class="patient-btn patient-btn-primary"
+                            type="button"
+                            @onclick="ReloadData">
+                        Thử lại
+                    </button>
+                </div>
+            </section>
+        }
+        else if (CurrentPatient == null)
+        {
+            <section class="patient-message-card warning">
+                <div class="patient-message-icon">
+                    🔗
+                </div>
+
+                <div>
+                    <h2>Tài khoản chưa liên kết hồ sơ</h2>
+
+                    <p>
+                        Tài khoản <strong>@CurrentUserName</strong>
+                        chưa được liên kết với hồ sơ bệnh nhân nào.
+                    </p>
+
+                    <p>
+                        Vui lòng liên hệ nhân viên phòng khám để được
+                        liên kết đúng hồ sơ. Hệ thống không hiển thị
+                        dữ liệu của bất kỳ bệnh nhân nào khác.
+                    </p>
+                </div>
+            </section>
+        }
+        else
+        {
+            <header class="patient-home-header">
+                <div>
+                    <span class="patient-eyebrow">
+                        Cổng thông tin bệnh nhân
+                    </span>
+
+                    <h1>
+                        Xin chào, @CurrentPatient.HoTen
+                    </h1>
+
+                    <p>
+                        Theo dõi hồ sơ sức khỏe, lịch sử khám
+                        và đơn thuốc của riêng bạn.
+                    </p>
+                </div>
+
+                <div class="patient-header-actions">
+                    <button class="patient-btn patient-btn-outline"
+                            type="button"
+                            @onclick="ReloadData">
+                        Làm mới
+                    </button>
+
+                    <button class="patient-btn patient-btn-primary"
+                            type="button"
+                            @onclick="GoProfile">
+                        Xem hồ sơ của tôi
+                    </button>
+                </div>
+            </header>
+
+            <section class="patient-welcome-card">
+                <div class="patient-welcome-content">
+                    <div class="patient-welcome-avatar">
+                        @GetInitials(CurrentPatient.HoTen)
+                    </div>
+
+                    <div>
+                        <span>Hồ sơ bệnh nhân</span>
+
+                        <h2>@CurrentPatient.HoTen</h2>
+
+                        <p>
+                            @GenderText(CurrentPatient.Gioitinh)
+                            • @AgeText(CurrentPatient.Ngaysinh)
+                            • @Text(CurrentPatient.Dienthoai)
+                        </p>
+                    </div>
+                </div>
+
+                <div class="patient-security-label">
+                    <span>🔒</span>
+
+                    <div>
+                        <strong>Hồ sơ riêng tư</strong>
+                        <small>Chỉ tài khoản của bạn được xem</small>
+                    </div>
+                </div>
+            </section>
+
+            <section class="patient-stats">
+                <article class="patient-stat-card">
+                    <div class="patient-stat-icon blue">
+                        🩺
+                    </div>
+
+                    <div>
+                        <span>Tổng lượt khám</span>
+                        <strong>@ExamCount</strong>
+                        <small>Toàn bộ lịch sử của bạn</small>
+                    </div>
+                </article>
+
+                <article class="patient-stat-card">
+                    <div class="patient-stat-icon green">
+                        ✅
+                    </div>
+
+                    <div>
+                        <span>Ca đã hoàn thành</span>
+                        <strong>@CompletedExamCount</strong>
+                        <small>Kết quả đã được bác sĩ hoàn tất</small>
+                    </div>
+                </article>
+
+                <article class="patient-stat-card">
+                    <div class="patient-stat-icon purple">
+                        💊
+                    </div>
+
+                    <div>
+                        <span>Đơn thuốc</span>
+                        <strong>@PrescriptionCount</strong>
+                        <small>Đơn thuốc được kê cho bạn</small>
+                    </div>
+                </article>
+
+                <article class="patient-stat-card">
+                    <div class="patient-stat-icon orange">
+                        📅
+                    </div>
+
+                    <div>
+                        <span>Lần khám gần nhất</span>
+                        <strong class="patient-stat-date">
+                            @LatestExamDate
+                        </strong>
+                        <small>@LatestExamDoctor</small>
+                    </div>
+                </article>
+            </section>
+
+            <section class="patient-quick-actions">
+                <button class="patient-quick-card"
+                        type="button"
+                        @onclick="GoProfile">
+                    <div class="patient-quick-icon profile">
+                        👤
+                    </div>
+
+                    <div>
+                        <h3>Hồ sơ của tôi</h3>
+
+                        <p>
+                            Xem thông tin cá nhân, liên hệ,
+                            bảo hiểm và tiền sử bệnh.
+                        </p>
+                    </div>
+
+                    <span class="patient-quick-arrow">
+                        →
+                    </span>
+                </button>
+
+                <button class="patient-quick-card"
+                        type="button"
+                        @onclick="GoExams">
+                    <div class="patient-quick-icon exam">
+                        🩺
+                    </div>
+
+                    <div>
+                        <h3>Lịch sử khám</h3>
+
+                        <p>
+                            Xem các lần khám, bác sĩ phụ trách
+                            và kết quả điều trị.
+                        </p>
+                    </div>
+
+                    <span class="patient-quick-arrow">
+                        →
+                    </span>
+                </button>
+
+                <button class="patient-quick-card"
+                        type="button"
+                        @onclick="GoPrescriptions">
+                    <div class="patient-quick-icon medicine">
+                        💊
+                    </div>
+
+                    <div>
+                        <h3>Đơn thuốc của tôi</h3>
+
+                        <p>
+                            Tra cứu các đơn thuốc đã kê
+                            và trạng thái cấp thuốc.
+                        </p>
+                    </div>
+
+                    <span class="patient-quick-arrow">
+                        →
+                    </span>
+                </button>
+            </section>
+
+            <section class="patient-dashboard-grid">
+                <article class="patient-card patient-exam-card">
+                    <div class="patient-card-header">
+                        <div>
+                            <h2>Lịch sử khám gần đây</h2>
+
+                            <p>
+                                Chỉ hiển thị các ca khám thuộc hồ sơ
+                                của bạn.
+                            </p>
+                        </div>
+
+                        <button class="patient-link-button"
+                                type="button"
+                                @onclick="GoExams">
+                            Xem tất cả
+                        </button>
+                    </div>
+
+                    @if (RecentExams.Any())
+                    {
+                        <div class="patient-table-wrapper">
+                            <table class="patient-table">
+                                <thead>
+                                    <tr>
+                                        <th>Ngày khám</th>
+                                        <th>Bác sĩ</th>
+                                        <th>Nội dung</th>
+                                        <th>Trạng thái</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    @foreach (Cakham item in RecentExams)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <strong>
+                                                    @FormatDate(item.NgayCT)
+                                                </strong>
+
+                                                <small>
+                                                    @FormatTime(item.NgayCT)
+                                                </small>
+                                            </td>
+
+                                            <td>
+                                                @DoctorName(item)
+                                            </td>
+
+                                            <td>
+                                                <div class="patient-table-text"
+                                                     title="@ExamSummary(item)">
+                                                    @ExamSummary(item)
+                                                </div>
+                                            </td>
+
+                                            <td>
+                                                <span class="@ExamStatusClass(
+                                                                                                          item.TrangThai)">
+                                                    @ExamStatusText(
+                                                        item.TrangThai)
+                                                </span>
+                                            </td>
+
+                                            <td>
+                                                <button class="patient-table-button"
+                                                        type="button"
+                                                        @onclick="() => OpenExam(item.Oid)">
+                                                    Chi tiết
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="patient-empty-state">
+                            <div>🩺</div>
+
+                            <strong>Chưa có lịch sử khám</strong>
+
+                            <p>
+                                Các ca khám của bạn sẽ được hiển thị
+                                tại đây sau khi phòng khám tiếp nhận.
+                            </p>
+                        </div>
+                    }
+                </article>
+
+                <div class="patient-side-column">
+                    <article class="patient-card">
+                        <div class="patient-card-header compact">
+                            <div>
+                                <h2>Đơn thuốc gần nhất</h2>
+
+                                <p>
+                                    Thông tin đơn thuốc mới nhất của bạn.
+                                </p>
+                            </div>
+                        </div>
+
+                        @if (LatestPrescription != null)
+                        {
+                            <div class="patient-prescription-preview">
+                                <div class="patient-prescription-top">
+                                    <div class="patient-prescription-icon">
+                                        💊
+                                    </div>
+
+                                    <div>
+                                        <strong>
+                                            @Text(
+                                                LatestPrescription.MaDonThuoc)
+                                        </strong>
+
+                                        <span>
+                                            @FormatDate(
+                                                LatestPrescription.NgayKeDon)
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="patient-info-list">
+                                    <div>
+                                        <span>Bác sĩ kê đơn</span>
+
+                                        <strong>
+                                            @PrescriptionDoctor(
+                                                LatestPrescription)
+                                        </strong>
+                                    </div>
+
+                                    <div>
+                                        <span>Chẩn đoán</span>
+
+                                        <strong>
+                                            @Text(
+                                                LatestPrescription.ChanDoan)
+                                        </strong>
+                                    </div>
+
+                                    <div>
+                                        <span>Tổng tiền dự kiến</span>
+
+                                        <strong>
+                                            @FormatMoney(
+                                                LatestPrescription.TongTien)
+                                        </strong>
+                                    </div>
+
+                                    <div>
+                                        <span>Trạng thái</span>
+
+                                        <span class="@PrescriptionStatusClass(
+                                                                                          LatestPrescription.TrangThai)">
+                                            @PrescriptionStatusText(
+                                                LatestPrescription.TrangThai)
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <button class="patient-btn patient-btn-outline patient-full-button"
+                                        type="button"
+                                        @onclick="GoPrescriptions">
+                                    Xem các đơn thuốc
+                                </button>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="patient-empty-state small">
+                                <div>💊</div>
+
+                                <strong>Chưa có đơn thuốc</strong>
+
+                                <p>
+                                    Đơn thuốc bác sĩ kê cho bạn
+                                    sẽ xuất hiện tại đây.
+                                </p>
+                            </div>
+                        }
+                    </article>
+
+                    <article class="patient-card">
+                        <div class="patient-card-header compact">
+                            <div>
+                                <h2>Thông tin liên hệ</h2>
+
+                                <p>
+                                    Thông tin hiện lưu trong hồ sơ.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="patient-contact-list">
+                            <div>
+                                <span class="patient-contact-icon">
+                                    📞
+                                </span>
+
+                                <div>
+                                    <small>Điện thoại</small>
+                                    <strong>
+                                        @Text(CurrentPatient.Dienthoai)
+                                    </strong>
+                                </div>
+                            </div>
+
+                            <div>
+                                <span class="patient-contact-icon">
+                                    ✉️
+                                </span>
+
+                                <div>
+                                    <small>Email</small>
+                                    <strong>
+                                        @Text(CurrentPatient.Email)
+                                    </strong>
+                                </div>
+                            </div>
+
+                            <div>
+                                <span class="patient-contact-icon">
+                                    📍
+                                </span>
+
+                                <div>
+                                    <small>Địa chỉ</small>
+                                    <strong>
+                                        @Text(CurrentPatient.Diachi)
+                                    </strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button class="patient-link-button patient-profile-link"
+                                type="button"
+                                @onclick="GoProfile">
+                            Xem đầy đủ hồ sơ →
+                        </button>
+                    </article>
+                </div>
+            </section>
+        }
+    </main>
+</div>
+
+@code {
+    private IObjectSpace objectSpace;
+
+    private Benhnhan CurrentPatient;
+
+    private List<Cakham> ExamHistory = new();
+
+    private List<DonThuoc> PrescriptionHistory = new();
+
+    private string CurrentUserName = "Bệnh nhân";
+
+    private string ErrorMessage = string.Empty;
+
+    private bool IsLoading = true;
+
+    private string SidebarName =>
+        CurrentPatient?.HoTen
+        ?? CurrentUserName;
+
+    private int ExamCount =>
+        ExamHistory.Count;
+
+    private int CompletedExamCount =>
+        ExamHistory.Count(x =>
+            x.TrangThai == TrangThaiCaKham.DaKham
+        );
+
+    private int PrescriptionCount =>
+        PrescriptionHistory.Count;
+
+    private Cakham LatestExam =>
+        ExamHistory
+            .OrderByDescending(x => x.NgayCT)
+            .FirstOrDefault();
+
+    private DonThuoc LatestPrescription =>
+        PrescriptionHistory
+            .OrderByDescending(x => x.NgayKeDon)
+            .FirstOrDefault();
+
+    private IEnumerable<Cakham> RecentExams =>
+        ExamHistory
+            .OrderByDescending(x => x.NgayCT)
+            .Take(5);
+
+    private string LatestExamDate =>
+        LatestExam == null
+            ? "Chưa có"
+            : FormatDate(LatestExam.NgayCT);
+
+    private string LatestExamDoctor =>
+        LatestExam == null
+            ? "Chưa có ca khám"
+            : DoctorName(LatestExam);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPageData();
+    }
+
+    private async Task LoadPageData()
+    {
+        IsLoading = true;
+        ErrorMessage = string.Empty;
+
+        try
+        {
+            objectSpace?.Dispose();
+
+            objectSpace =
+                ObjectSpaceFactory.CreateObjectSpace(
+                    typeof(Benhnhan)
+                );
+
+            CurrentUserName =
+                await CurrentPatientService
+                    .GetCurrentUserNameAsync();
+
+            CurrentPatient =
+                await CurrentPatientService
+                    .GetCurrentPatientAsync(
+                        objectSpace
+                    );
+
+            if (CurrentPatient == null)
+            {
+                ExamHistory.Clear();
+                PrescriptionHistory.Clear();
+                return;
+            }
+
+            ExamHistory =
+                (
+                    await CurrentPatientService
+                        .GetExamHistoryAsync(
+                            objectSpace
+                        )
+                )
+                .ToList();
+
+            PrescriptionHistory =
+                (
+                    await CurrentPatientService
+                        .GetPrescriptionHistoryAsync(
+                            objectSpace
+                        )
+                )
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            CurrentPatient = null;
+
+            ExamHistory.Clear();
+            PrescriptionHistory.Clear();
+
+            ErrorMessage =
+                "Đã xảy ra lỗi khi tải dữ liệu bệnh nhân. " +
+                GetErrorMessage(ex);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task ReloadData()
+    {
+        await LoadPageData();
+    }
+
+    private void GoProfile()
+    {
+        Navigation.NavigateTo("/patient/profile");
+    }
+
+    private void GoExams()
+    {
+        Navigation.NavigateTo("/patient/exams");
+    }
+
+    private void GoPrescriptions()
+    {
+        Navigation.NavigateTo("/patient/prescriptions");
+    }
+
+    private void OpenExam(int oid)
+    {
+        Navigation.NavigateTo(
+            $"/patient/exams/{oid}"
+        );
+    }
+
+    private string DoctorName(Cakham exam)
+    {
+        if (exam?.Bacsi == null)
+        {
+            return "Chưa phân công";
+        }
+
+        return string.IsNullOrWhiteSpace(
+            exam.Bacsi.HoTen)
+                ? $"Bác sĩ #{exam.Bacsi.Oid}"
+                : exam.Bacsi.HoTen;
+    }
+
+    private string PrescriptionDoctor(
+        DonThuoc prescription)
+    {
+        if (prescription?.BacSi == null)
+        {
+            return "Chưa có thông tin";
+        }
+
+        return string.IsNullOrWhiteSpace(
+            prescription.BacSi.HoTen)
+                ? $"Bác sĩ #{prescription.BacSi.Oid}"
+                : prescription.BacSi.HoTen;
+    }
+
+    private string ExamSummary(Cakham exam)
+    {
+        if (exam == null)
+        {
+            return "--";
+        }
+
+        if (!string.IsNullOrWhiteSpace(
+            exam.Benhchung))
+        {
+            return exam.Benhchung;
+        }
+
+        if (!string.IsNullOrWhiteSpace(
+            exam.LydoKham))
+        {
+            return exam.LydoKham;
+        }
+
+        return "Chưa có kết luận";
+    }
+
+    private string ExamStatusText(
+        TrangThaiCaKham status)
+    {
+        return status switch
+        {
+            TrangThaiCaKham.ChoKham =>
+                "Chờ khám",
+
+            TrangThaiCaKham.DangKham =>
+                "Đang khám",
+
+            TrangThaiCaKham.DaKham =>
+                "Đã khám",
+
+            TrangThaiCaKham.DaHuy =>
+                "Đã hủy",
+
+            _ => status.ToString()
+        };
+    }
+
+    private string ExamStatusClass(
+        TrangThaiCaKham status)
+    {
+        return status switch
+        {
+            TrangThaiCaKham.ChoKham =>
+                "patient-status warning",
+
+            TrangThaiCaKham.DangKham =>
+                "patient-status info",
+
+            TrangThaiCaKham.DaKham =>
+                "patient-status success",
+
+            TrangThaiCaKham.DaHuy =>
+                "patient-status danger",
+
+            _ => "patient-status neutral"
+        };
+    }
+
+    private string PrescriptionStatusText(
+        TrangThaiDonThuoc status)
+    {
+        return status switch
+        {
+            TrangThaiDonThuoc.ChuaXuat =>
+                "Chờ cấp thuốc",
+
+            TrangThaiDonThuoc.DaXuat =>
+                "Đã cấp thuốc",
+
+            TrangThaiDonThuoc.Huy =>
+                "Đã hủy",
+
+            _ => status.ToString()
+        };
+    }
+
+    private string PrescriptionStatusClass(
+        TrangThaiDonThuoc status)
+    {
+        return status switch
+        {
+            TrangThaiDonThuoc.ChuaXuat =>
+                "patient-status warning",
+
+            TrangThaiDonThuoc.DaXuat =>
+                "patient-status success",
+
+            TrangThaiDonThuoc.Huy =>
+                "patient-status danger",
+
+            _ => "patient-status neutral"
+        };
+    }
+
+    private string GenderText(int gender)
+    {
+        return gender switch
+        {
+            1 => "Nam",
+            2 => "Nữ",
+            _ => "Chưa cập nhật giới tính"
+        };
+    }
+
+    private string AgeText(DateTime birthDate)
+    {
+        if (birthDate == DateTime.MinValue)
+        {
+            return "Chưa cập nhật ngày sinh";
+        }
+
+        DateTime today = DateTime.Today;
+
+        int age =
+            today.Year -
+            birthDate.Year;
+
+        if (birthDate.Date >
+            today.AddYears(-age))
+        {
+            age--;
+        }
+
+        return $"{Math.Max(age, 0)} tuổi";
+    }
+
+    private string FormatDate(DateTime value)
+    {
+        if (value == DateTime.MinValue)
+        {
+            return "--";
+        }
+
+        return value.ToString("dd/MM/yyyy");
+    }
+
+    private string FormatTime(DateTime value)
+    {
+        if (value == DateTime.MinValue)
+        {
+            return "--";
+        }
+
+        return value.ToString("HH:mm");
+    }
+
+    private string FormatMoney(decimal value)
+    {
+        return value.ToString("n0") + " đ";
+    }
+
+    private string Text(string value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? "--"
+            : value;
+    }
+
+    private string GetInitials(string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+        {
+            return "BN";
+        }
+
+        string[] parts =
+            fullName.Split(
+                ' ',
+                StringSplitOptions.RemoveEmptyEntries
+            );
+
+        if (parts.Length == 0)
+        {
+            return "BN";
+        }
+
+        if (parts.Length == 1)
+        {
+            return parts[0]
+                .Substring(
+                    0,
+                    Math.Min(parts[0].Length, 2)
+                )
+                .ToUpperInvariant();
+        }
+
+        return $"{parts[0][0]}{parts[^1][0]}"
+            .ToUpperInvariant();
+    }
+
+    private string GetErrorMessage(Exception exception)
+    {
+        Exception current = exception;
+
+        while (
+            current.InnerException != null &&
+            !string.IsNullOrWhiteSpace(
+                current.InnerException.Message
+            )
+        )
+        {
+            current =
+                current.InnerException;
+        }
+
+        return current.Message;
+    }
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+}

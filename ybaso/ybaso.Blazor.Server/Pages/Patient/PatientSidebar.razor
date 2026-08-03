@@ -1,0 +1,216 @@
+﻿@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Authorization
+
+@using ybaso.Blazor.Server.Shared
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<aside class="patient-sidebar">
+    <div class="patient-brand natcare-sidebar-brand">
+        <img class="natcare-sidebar-logo"
+             src="images/natcare-logo.png"
+             alt="NATCare - Y học cổ truyền" />
+
+        <div class="natcare-workspace-label">
+            Patient Portal
+        </div>
+    </div>
+
+    <nav class="patient-menu">
+        <div class="patient-menu-group">
+            <div class="patient-menu-group-title">
+                <span>🏠</span>
+                <span>01. Tổng quan</span>
+            </div>
+
+            <button class="@GetMenuClass("home")"
+                    type="button"
+                    @onclick="GoHome">
+                <span class="patient-menu-icon">▦</span>
+                <span>Trang chủ</span>
+            </button>
+        </div>
+
+        <div class="patient-menu-group">
+            <div class="patient-menu-group-title">
+                <span>👤</span>
+                <span>02. Hồ sơ cá nhân</span>
+            </div>
+
+            <button class="@GetMenuClass("profile")"
+                    type="button"
+                    @onclick="GoProfile">
+                <span class="patient-menu-icon">🪪</span>
+                <span>Thông tin của tôi</span>
+            </button>
+        </div>
+
+        <div class="patient-menu-group">
+            <div class="patient-menu-group-title">
+                <span>🩺</span>
+                <span>03. Khám bệnh</span>
+            </div>
+
+            <button class="@GetMenuClass("exam-create")"
+                    type="button"
+                    @onclick="GoCreateExam">
+                <span class="patient-menu-icon">➕</span>
+                <span>Ca khám</span>
+            </button>
+
+            <button class="@GetMenuClass("exams")"
+                    type="button"
+                    @onclick="GoExams">
+                <span class="patient-menu-icon">📋</span>
+                <span>Lịch sử khám</span>
+            </button>
+        </div>
+
+        <div class="patient-menu-group">
+            <div class="patient-menu-group-title">
+                <span>💊</span>
+                <span>04. Điều trị</span>
+            </div>
+
+            <button class="@GetMenuClass("prescriptions")"
+                    type="button"
+                    @onclick="GoPrescriptions">
+                <span class="patient-menu-icon">🧾</span>
+                <span>Đơn thuốc của tôi</span>
+            </button>
+        </div>
+    </nav>
+
+    <div class="patient-privacy-box">
+        <div class="patient-privacy-icon">
+            🔒
+        </div>
+
+        <div>
+            <strong>Dữ liệu riêng tư</strong>
+
+            <span>
+                Bạn chỉ có thể xem và tạo ca khám
+                cho hồ sơ của chính mình.
+            </span>
+        </div>
+    </div>
+
+    <div class="patient-sidebar-footer">
+        <div class="patient-user-box">
+            <div class="patient-avatar">
+                @GetInitials(ShownName)
+            </div>
+
+            <div class="patient-user-content">
+                <div class="patient-user-name"
+                     title="@ShownName">
+                    @ShownName
+                </div>
+
+                <div class="patient-user-role">
+                    Bệnh nhân
+                </div>
+            </div>
+        </div>
+
+        <MediFlowLogoutButton />
+    </div>
+</aside>
+
+@code {
+    [Parameter]
+    public string ActiveMenu { get; set; } = string.Empty;
+
+    [Parameter]
+    public string DisplayName { get; set; } = string.Empty;
+
+    private string CurrentUserName = "Bệnh nhân";
+
+    private string ShownName =>
+        !string.IsNullOrWhiteSpace(DisplayName)
+            ? DisplayName
+            : CurrentUserName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        AuthenticationState authenticationState =
+            await AuthenticationStateProvider
+                .GetAuthenticationStateAsync();
+
+        CurrentUserName =
+            authenticationState.User?.Identity?.Name
+            ?? "Bệnh nhân";
+    }
+
+    private string GetMenuClass(string menuName)
+    {
+        bool isActive =
+            string.Equals(
+                ActiveMenu,
+                menuName,
+                StringComparison.OrdinalIgnoreCase
+            );
+
+        return isActive
+            ? "patient-menu-item active"
+            : "patient-menu-item";
+    }
+
+    private void GoHome()
+    {
+        Navigation.NavigateTo("/patient");
+    }
+
+    private void GoProfile()
+    {
+        Navigation.NavigateTo("/patient/profile");
+    }
+
+    private void GoCreateExam()
+    {
+        Navigation.NavigateTo("/patient/exams/new");
+    }
+
+    private void GoExams()
+    {
+        Navigation.NavigateTo("/patient/exams");
+    }
+
+    private void GoPrescriptions()
+    {
+        Navigation.NavigateTo("/patient/prescriptions");
+    }
+
+    private string GetInitials(string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+        {
+            return "BN";
+        }
+
+        string[] parts =
+            fullName.Split(
+                ' ',
+                StringSplitOptions.RemoveEmptyEntries
+            );
+
+        if (parts.Length == 0)
+        {
+            return "BN";
+        }
+
+        if (parts.Length == 1)
+        {
+            return parts[0]
+                .Substring(
+                    0,
+                    Math.Min(2, parts[0].Length)
+                )
+                .ToUpperInvariant();
+        }
+
+        return $"{parts[0][0]}{parts[^1][0]}"
+            .ToUpperInvariant();
+    }
+}

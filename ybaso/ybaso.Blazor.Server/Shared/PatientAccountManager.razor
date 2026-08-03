@@ -1,0 +1,444 @@
+﻿@using ybaso.Blazor.Server.Services
+
+@inject PatientAccountService PatientAccountService
+
+<section class="staff-form-card staff-account-card">
+    <div class="staff-form-header">
+        <div class="staff-form-avatar staff-account-avatar">
+            🔐
+        </div>
+
+        <div>
+            <h2>Tài khoản đăng nhập bệnh nhân</h2>
+
+            <p>
+                Tạo tài khoản để bệnh nhân đăng nhập
+                và xem hồ sơ của chính mình.
+            </p>
+        </div>
+    </div>
+
+    @if (PatientOid <= 0)
+    {
+        <div class="mf-alert mf-alert-success">
+            Hãy lưu hồ sơ bệnh nhân trước.
+            Sau đó mở lại nút
+            <strong>Sửa</strong>
+            để cấp tài khoản đăng nhập.
+        </div>
+    }
+    else if (IsLoading)
+    {
+        <div class="mf-alert mf-alert-success">
+            Đang kiểm tra tài khoản bệnh nhân...
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrWhiteSpace(Message))
+        {
+            <div class="@MessageClass">
+                @Message
+            </div>
+        }
+
+        @if (HasAccount)
+        {
+            <div class="staff-account-summary">
+                <div>
+                    <span class="staff-account-label">
+                        Tên đăng nhập
+                    </span>
+
+                    <strong>
+                        @UserName
+                    </strong>
+                </div>
+
+                <span class="@(IsActive
+                                          ? "staff-account-status active"
+                                          : "staff-account-status locked")">
+
+                    @(IsActive
+                        ? "Đang hoạt động"
+                        : "Đang bị khóa")
+                </span>
+            </div>
+
+            <div class="staff-form-grid">
+                <div class="staff-form-group">
+                    <label>
+                        Tên đăng nhập
+                    </label>
+
+                    <input class="staff-form-control"
+                           value="@UserName"
+                           readonly />
+                </div>
+
+                <div class="staff-form-group">
+                    <label>
+                        Trạng thái
+                    </label>
+
+                    <input class="staff-form-control"
+                           value="@(IsActive
+                                                          ? "Đang hoạt động"
+                                                          : "Đang bị khóa")"
+                           readonly />
+                </div>
+
+                <div class="staff-form-group">
+                    <label>
+                        Mật khẩu mới
+
+                        <span class="required">
+                            *
+                        </span>
+                    </label>
+
+                    <input class="staff-form-control"
+                           type="password"
+                           autocomplete="new-password"
+                           placeholder="Tối thiểu 6 ký tự..."
+                           @bind="Password" />
+                </div>
+
+                <div class="staff-form-group">
+                    <label>
+                        Nhập lại mật khẩu
+
+                        <span class="required">
+                            *
+                        </span>
+                    </label>
+
+                    <input class="staff-form-control"
+                           type="password"
+                           autocomplete="new-password"
+                           placeholder="Nhập lại mật khẩu..."
+                           @bind="ConfirmPassword" />
+                </div>
+            </div>
+
+            <div class="staff-form-footer">
+                <button class="mf-btn mf-btn-primary"
+                        type="button"
+                        disabled="@IsBusy"
+                        @onclick="ResetPassword">
+
+                    @(IsBusy
+                        ? "Đang xử lý..."
+                        : "Đặt lại mật khẩu và mở khóa")
+                </button>
+            </div>
+        }
+        else
+        {
+            <div class="mf-alert mf-alert-success">
+                Bệnh nhân chưa có tài khoản.
+                Tên đăng nhập mặc định được tạo theo
+                mã bệnh nhân và bạn vẫn có thể sửa lại.
+            </div>
+
+            <div class="staff-form-grid">
+                <div class="staff-form-group full">
+                    <label>
+                        Tên đăng nhập
+
+                        <span class="required">
+                            *
+                        </span>
+                    </label>
+
+                    <input class="staff-form-control"
+                           placeholder="Ví dụ: BN000001"
+                           @bind="UserName" />
+                </div>
+
+                <div class="staff-form-group">
+                    <label>
+                        Mật khẩu
+
+                        <span class="required">
+                            *
+                        </span>
+                    </label>
+
+                    <input class="staff-form-control"
+                           type="password"
+                           autocomplete="new-password"
+                           placeholder="Tối thiểu 6 ký tự..."
+                           @bind="Password" />
+                </div>
+
+                <div class="staff-form-group">
+                    <label>
+                        Nhập lại mật khẩu
+
+                        <span class="required">
+                            *
+                        </span>
+                    </label>
+
+                    <input class="staff-form-control"
+                           type="password"
+                           autocomplete="new-password"
+                           placeholder="Nhập lại mật khẩu..."
+                           @bind="ConfirmPassword" />
+                </div>
+            </div>
+
+            <div class="staff-form-footer">
+                <button class="mf-btn mf-btn-primary"
+                        type="button"
+                        disabled="@IsBusy"
+                        @onclick="CreateAccount">
+
+                    @(IsBusy
+                        ? "Đang tạo tài khoản..."
+                        : "Tạo tài khoản bệnh nhân")
+                </button>
+            </div>
+        }
+    }
+</section>
+
+@code {
+    [Parameter]
+    public int PatientOid { get; set; }
+
+    private int loadedPatientOid;
+
+    private bool IsLoading;
+    private bool IsBusy;
+    private bool HasAccount;
+    private bool IsActive;
+
+    private string UserName =
+        string.Empty;
+
+    private string Password =
+        string.Empty;
+
+    private string ConfirmPassword =
+        string.Empty;
+
+    private string Message =
+        string.Empty;
+
+    private string MessageClass =
+        "mf-alert mf-alert-success";
+
+    protected override async Task
+        OnParametersSetAsync()
+    {
+        if (PatientOid <= 0)
+        {
+            return;
+        }
+
+        if (PatientOid == loadedPatientOid)
+        {
+            return;
+        }
+
+        loadedPatientOid =
+            PatientOid;
+
+        await LoadAccountInfo();
+    }
+
+    private async Task LoadAccountInfo()
+    {
+        IsLoading =
+            true;
+
+        Message =
+            string.Empty;
+
+        try
+        {
+            PatientAccountInfo info =
+                await PatientAccountService
+                    .GetInfoAsync(
+                        PatientOid
+                    );
+
+            HasAccount =
+                info.HasAccount;
+
+            IsActive =
+                info.IsActive;
+
+            UserName =
+                info.UserName;
+
+            if (!info.PatientFound)
+            {
+                ShowError(
+                    info.Message
+                );
+            }
+        }
+        catch (Exception exception)
+        {
+            ShowError(
+                "Không thể kiểm tra tài khoản: " +
+                exception.Message
+            );
+        }
+        finally
+        {
+            IsLoading =
+                false;
+        }
+    }
+
+    private async Task CreateAccount()
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        IsBusy =
+            true;
+
+        Message =
+            string.Empty;
+
+        try
+        {
+            PatientAccountResult result =
+                await PatientAccountService
+                    .CreateAsync(
+                        PatientOid,
+                        UserName,
+                        Password,
+                        ConfirmPassword
+                    );
+
+            if (!result.Succeeded)
+            {
+                ShowError(
+                    result.Message
+                );
+
+                return;
+            }
+
+            HasAccount =
+                true;
+
+            IsActive =
+                true;
+
+            UserName =
+                result.UserName;
+
+            Password =
+                string.Empty;
+
+            ConfirmPassword =
+                string.Empty;
+
+            ShowSuccess(
+                result.Message +
+                " Bệnh nhân có thể đăng nhập " +
+                "tại /LoginPage."
+            );
+        }
+        catch (Exception exception)
+        {
+            ShowError(
+                "Lỗi khi tạo tài khoản: " +
+                exception.Message
+            );
+        }
+        finally
+        {
+            IsBusy =
+                false;
+        }
+    }
+
+    private async Task ResetPassword()
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        IsBusy =
+            true;
+
+        Message =
+            string.Empty;
+
+        try
+        {
+            PatientAccountResult result =
+                await PatientAccountService
+                    .ResetPasswordAsync(
+                        PatientOid,
+                        Password,
+                        ConfirmPassword
+                    );
+
+            if (!result.Succeeded)
+            {
+                ShowError(
+                    result.Message
+                );
+
+                return;
+            }
+
+            IsActive =
+                true;
+
+            Password =
+                string.Empty;
+
+            ConfirmPassword =
+                string.Empty;
+
+            ShowSuccess(
+                result.Message
+            );
+        }
+        catch (Exception exception)
+        {
+            ShowError(
+                "Lỗi khi đặt lại mật khẩu: " +
+                exception.Message
+            );
+        }
+        finally
+        {
+            IsBusy =
+                false;
+        }
+    }
+
+    private void ShowSuccess(
+        string message)
+    {
+        MessageClass =
+            "mf-alert mf-alert-success";
+
+        Message =
+            message;
+    }
+
+    private void ShowError(
+        string message)
+    {
+        MessageClass =
+            "mf-alert mf-alert-danger";
+
+        Message =
+            message;
+    }
+}

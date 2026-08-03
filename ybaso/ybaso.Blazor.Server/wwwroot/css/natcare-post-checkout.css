@@ -1,0 +1,766 @@
+﻿/* =========================================================
+   NATCARE POS - THANH TOÁN VÀ HÓA ĐƠN XUẤT THUỐC
+   ========================================================= */
+
+.pos-table-scroll {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.pos-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgba(15, 23, 42, 0.58);
+    backdrop-filter: blur(6px);
+}
+
+.pos-modal-shell {
+    width: min(1180px, 100%);
+    max-height: calc(100vh - 48px);
+    overflow: auto;
+    border: 1px solid rgba(203, 213, 225, 0.9);
+    border-radius: 24px;
+    background: #f8fafc;
+    box-shadow: 0 32px 90px rgba(15, 23, 42, 0.28);
+}
+
+.pos-modal-header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 22px 26px;
+    border-bottom: 1px solid #dbe5ef;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(12px);
+}
+
+    .pos-modal-header h2,
+    .pos-modal-header p {
+        margin: 0;
+    }
+
+    .pos-modal-header h2 {
+        margin-top: 4px;
+        color: #0f172a;
+        font-size: 25px;
+        line-height: 1.2;
+    }
+
+    .pos-modal-header p {
+        margin-top: 5px;
+        color: #64748b;
+        font-size: 13px;
+    }
+
+.pos-kicker {
+    color: #0f766e;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.pos-close-button {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    place-items: center;
+    border: 1px solid #dbe5ef;
+    border-radius: 11px;
+    background: #ffffff;
+    color: #475569;
+    font: inherit;
+    font-size: 25px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+    .pos-close-button:hover {
+        border-color: #99d8d2;
+        background: #ecfdf5;
+        color: #0f766e;
+    }
+
+.pos-checkout-error {
+    margin: 18px 26px 0;
+    padding: 12px 14px;
+    border: 1px solid #fecaca;
+    border-radius: 12px;
+    background: #fff1f2;
+    color: #b91c1c;
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.pos-checkout-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(350px, 0.75fr);
+    gap: 20px;
+    padding: 22px 26px 26px;
+}
+
+.pos-receipt-card,
+.pos-payment-card,
+.pos-final-receipt,
+.pos-payment-success {
+    border: 1px solid #dbe5ef;
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
+.pos-receipt-card,
+.pos-payment-card {
+    padding: 22px;
+}
+
+.pos-receipt-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 17px;
+    border-bottom: 1px dashed #cbd5e1;
+}
+
+.pos-brand-mark {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    border-radius: 13px;
+    background: linear-gradient(135deg, #0f766e, #0d9488);
+    color: #ffffff;
+    font-size: 22px;
+    font-weight: 900;
+}
+
+.pos-receipt-brand > div:last-child {
+    display: flex;
+    flex-direction: column;
+}
+
+.pos-receipt-brand strong {
+    color: #0f172a;
+    font-size: 21px;
+    line-height: 1.1;
+}
+
+.pos-receipt-brand span {
+    margin-top: 3px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.pos-receipt-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 11px 20px;
+    padding: 17px 0;
+    border-bottom: 1px dashed #cbd5e1;
+}
+
+    .pos-receipt-meta > div,
+    .pos-final-info > div {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .pos-receipt-meta span,
+    .pos-final-info span {
+        color: #64748b;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+
+    .pos-receipt-meta strong,
+    .pos-final-info strong {
+        overflow: hidden;
+        color: #0f172a;
+        font-size: 13px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+.pos-items {
+    padding: 12px 0 5px;
+}
+
+.pos-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 60px 120px;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 4px;
+    border-bottom: 1px solid #edf2f7;
+}
+
+    .pos-item > :nth-child(2),
+    .pos-item > :nth-child(3) {
+        text-align: right;
+    }
+
+    .pos-item > div {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .pos-item strong {
+        color: #0f172a;
+        font-size: 13px;
+    }
+
+    .pos-item small {
+        color: #64748b;
+        font-size: 11px;
+    }
+
+.pos-item-heading {
+    padding-top: 4px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.pos-totals {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    margin-top: 13px;
+    padding-top: 15px;
+    border-top: 1px dashed #cbd5e1;
+}
+
+    .pos-totals > div,
+    .pos-final-totals > div {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+    }
+
+    .pos-totals span,
+    .pos-final-totals span {
+        color: #64748b;
+        font-size: 13px;
+    }
+
+    .pos-totals strong,
+    .pos-final-totals strong {
+        color: #0f172a;
+    }
+
+.pos-grand-total {
+    margin-top: 3px;
+    padding-top: 12px;
+    border-top: 1px solid #dbe5ef;
+}
+
+    .pos-grand-total span,
+    .pos-grand-total strong {
+        color: #0f766e;
+        font-size: 20px;
+        font-weight: 850;
+    }
+
+.pos-section-title h3,
+.pos-section-title p {
+    margin: 0;
+}
+
+.pos-section-title h3 {
+    color: #0f172a;
+    font-size: 18px;
+}
+
+.pos-section-title p {
+    margin-top: 4px;
+    color: #64748b;
+    font-size: 12px;
+}
+
+.pos-payment-methods {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    margin-top: 17px;
+}
+
+.pos-payment-option {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) 26px;
+    align-items: center;
+    gap: 11px;
+    width: 100%;
+    padding: 12px 13px;
+    border: 1px solid #dbe5ef;
+    border-radius: 13px;
+    background: #ffffff;
+    color: #334155;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: 0.18s ease;
+}
+
+    .pos-payment-option:hover {
+        border-color: #7dd3c7;
+        background: #f0fdfa;
+    }
+
+    .pos-payment-option.active {
+        border-color: #0f9488;
+        background: #ecfdf5;
+        box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+    }
+
+.pos-payment-icon {
+    display: grid;
+    width: 40px;
+    height: 40px;
+    place-items: center;
+    border-radius: 11px;
+    background: #f1f5f9;
+    font-size: 19px;
+}
+
+.pos-payment-option.active .pos-payment-icon {
+    background: #ccfbf1;
+}
+
+.pos-payment-option > span:nth-child(2) {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.pos-payment-option strong {
+    color: #0f172a;
+    font-size: 13px;
+}
+
+.pos-payment-option small {
+    color: #64748b;
+    font-size: 11px;
+}
+
+.pos-payment-check {
+    display: grid;
+    width: 23px;
+    height: 23px;
+    place-items: center;
+    border: 1px solid #cbd5e1;
+    border-radius: 50%;
+    color: transparent;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.pos-payment-option.active .pos-payment-check {
+    border-color: #0f9488;
+    background: #0f9488;
+    color: #ffffff;
+}
+
+.pos-payment-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 18px;
+    padding-top: 17px;
+    border-top: 1px solid #e2e8f0;
+}
+
+    .pos-payment-form label {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+        .pos-payment-form label > span {
+            color: #475569;
+            font-size: 12px;
+            font-weight: 750;
+        }
+
+.pos-money-input,
+.pos-text-input {
+    width: 100%;
+    min-height: 43px;
+    padding: 9px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #0f172a;
+    font: inherit;
+    font-size: 14px;
+    outline: none;
+}
+
+    .pos-money-input:focus,
+    .pos-text-input:focus {
+        border-color: #0f9488;
+        box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+    }
+
+.pos-money-input-highlight {
+    border-color: #5eead4;
+    background: #f0fdfa;
+    font-size: 17px;
+    font-weight: 800;
+}
+
+.pos-change-box,
+.pos-pay-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 14px;
+    border-radius: 11px;
+}
+
+.pos-change-box {
+    border: 1px solid #bbf7d0;
+    background: #f0fdf4;
+}
+
+    .pos-change-box span {
+        color: #166534;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .pos-change-box strong {
+        color: #166534;
+        font-size: 17px;
+    }
+
+.pos-pay-summary {
+    margin-top: 17px;
+    background: #0f766e;
+    color: #ffffff;
+}
+
+    .pos-pay-summary span {
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+    .pos-pay-summary strong {
+        font-size: 22px;
+    }
+
+.pos-modal-actions {
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.pos-confirm-button {
+    min-height: 45px;
+}
+
+.pos-modal-actions button:disabled {
+    cursor: wait;
+    opacity: 0.65;
+}
+
+.pos-success-layout {
+    display: grid;
+    grid-template-columns: 330px minmax(0, 1fr);
+    gap: 20px;
+    padding: 22px 26px 26px;
+}
+
+.pos-payment-success {
+    display: flex;
+    align-items: center;
+    align-self: start;
+    flex-direction: column;
+    padding: 34px 24px;
+    text-align: center;
+}
+
+.pos-success-icon {
+    display: grid;
+    width: 72px;
+    height: 72px;
+    place-items: center;
+    margin-bottom: 15px;
+    border-radius: 50%;
+    background: #dcfce7;
+    color: #15803d;
+    font-size: 36px;
+    font-weight: 900;
+}
+
+.pos-payment-success > span {
+    color: #15803d;
+    font-size: 11px;
+    font-weight: 850;
+    letter-spacing: 0.1em;
+}
+
+.pos-payment-success h3 {
+    margin: 10px 0 4px;
+    color: #0f172a;
+    font-size: 29px;
+}
+
+.pos-payment-success p {
+    margin: 0;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.pos-final-receipt {
+    padding: 25px;
+}
+
+.pos-final-brand,
+.pos-final-title,
+.pos-final-info,
+.pos-final-items,
+.pos-final-totals,
+.pos-final-footer {
+    max-width: 650px;
+    margin-right: auto;
+    margin-left: auto;
+}
+
+.pos-final-brand {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #0f766e;
+}
+
+    .pos-final-brand > div {
+        display: flex;
+        flex-direction: column;
+    }
+
+        .pos-final-brand > div strong {
+            color: #0f766e;
+            font-size: 24px;
+            line-height: 1;
+        }
+
+        .pos-final-brand > div span {
+            margin-top: 4px;
+            color: #475569;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+        }
+
+.pos-paid-badge {
+    padding: 7px 10px;
+    border-radius: 999px;
+    background: #dcfce7;
+    color: #166534;
+    font-size: 10px;
+    font-weight: 850;
+}
+
+.pos-final-title {
+    padding: 18px 0 14px;
+    text-align: center;
+}
+
+    .pos-final-title h3,
+    .pos-final-title p {
+        margin: 0;
+    }
+
+    .pos-final-title h3 {
+        color: #0f172a;
+        font-size: 20px;
+    }
+
+    .pos-final-title p {
+        margin-top: 5px;
+        color: #64748b;
+        font-size: 12px;
+    }
+
+.pos-final-info {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 18px;
+    padding: 13px 0;
+    border-top: 1px dashed #cbd5e1;
+    border-bottom: 1px dashed #cbd5e1;
+}
+
+.pos-final-items {
+    padding: 12px 0;
+}
+
+.pos-final-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 55px 95px 110px;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid #edf2f7;
+    color: #334155;
+    font-size: 12px;
+}
+
+    .pos-final-row > :not(:first-child) {
+        text-align: right;
+    }
+
+.pos-final-heading {
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 850;
+    text-transform: uppercase;
+}
+
+.pos-final-totals {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 13px;
+    border-top: 1px dashed #cbd5e1;
+}
+
+.pos-final-grand {
+    margin: 3px 0;
+    padding: 11px 0;
+    border-top: 1px solid #cbd5e1;
+    border-bottom: 1px solid #cbd5e1;
+}
+
+    .pos-final-grand span,
+    .pos-final-grand strong {
+        color: #0f766e;
+        font-size: 18px;
+        font-weight: 900;
+    }
+
+.pos-final-footer {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px dashed #cbd5e1;
+    color: #64748b;
+    font-size: 11px;
+    font-style: italic;
+    text-align: center;
+}
+
+.pos-success-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+@media (max-width: 980px) {
+    .pos-checkout-grid,
+    .pos-success-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .pos-payment-success {
+        padding: 24px;
+    }
+}
+
+@media (max-width: 680px) {
+    .pos-modal-backdrop {
+        padding: 0;
+    }
+
+    .pos-modal-shell {
+        width: 100%;
+        max-height: 100vh;
+        min-height: 100vh;
+        border: 0;
+        border-radius: 0;
+    }
+
+    .pos-modal-header,
+    .pos-checkout-grid,
+    .pos-success-layout {
+        padding-right: 16px;
+        padding-left: 16px;
+    }
+
+    .pos-receipt-card,
+    .pos-payment-card,
+    .pos-final-receipt {
+        padding: 16px;
+    }
+
+    .pos-receipt-meta,
+    .pos-final-info {
+        grid-template-columns: 1fr;
+    }
+
+    .pos-item {
+        grid-template-columns: minmax(0, 1fr) 42px 92px;
+        gap: 8px;
+    }
+
+    .pos-final-row {
+        grid-template-columns: minmax(0, 1fr) 40px 78px 86px;
+        gap: 6px;
+        font-size: 10px;
+    }
+
+    .pos-modal-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .pos-success-actions {
+        flex-direction: column;
+    }
+
+        .pos-success-actions .mf-btn {
+            width: 100%;
+        }
+}
+
+@media print {
+    body * {
+        visibility: hidden !important;
+    }
+
+    #natcare-print-invoice,
+    #natcare-print-invoice * {
+        visibility: visible !important;
+    }
+
+    #natcare-print-invoice {
+        position: absolute;
+        inset: 0 auto auto 0;
+        width: 100%;
+        border: 0;
+        box-shadow: none;
+    }
+}

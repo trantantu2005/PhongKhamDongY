@@ -1,0 +1,45 @@
+﻿@using System.Linq
+
+<div style="width:100%; display:flex; justify-content:center; align-items:center; padding:20px 0;">
+    <svg viewBox="0 0 520 330" style="width:520px; max-width:100%; height:330px;">
+
+        <!-- Đường nối -->
+        <line x1="260" y1="105" x2="260" y2="130" stroke="#4b5563" stroke-width="3" />
+        <line x1="207" y1="165" x2="238" y2="165" stroke="#4b5563" stroke-width="3" />
+        <line x1="282" y1="165" x2="313" y2="165" stroke="#4b5563" stroke-width="3" />
+        <line x1="260" y1="200" x2="260" y2="225" stroke="#4b5563" stroke-width="3" />
+
+        <!-- Vòng tròn trên -->
+        <circle cx="260" cy="65" r="42" fill="white" stroke="#111827" stroke-width="1.5" />
+        <text x="260" y="72" text-anchor="middle" font-size="18" font-family="Arial">@Tren</text>
+
+        <!-- Vòng tròn trái -->
+        <circle cx="165" cy="165" r="42" fill="white" stroke="#111827" stroke-width="1.5" />
+        <text x="165" y="172" text-anchor="middle" font-size="18" font-family="Arial">@Trai</text>
+
+        <!-- Vòng tròn giữa -->
+        <circle cx="260" cy="165" r="42" fill="white" stroke="#111827" stroke-width="1.5" />
+        <text x="260" y="172" text-anchor="middle" font-size="18" font-family="Arial">@Giua</text>
+
+        <!-- Vòng tròn phải -->
+        <circle cx="355" cy="165" r="42" fill="white" stroke="#111827" stroke-width="1.5" />
+        <text x="355" y="172" text-anchor="middle" font-size="18" font-family="Arial">@Phai</text>
+
+        <!-- Vòng tròn dưới -->
+        <circle cx="260" cy="265" r="42" fill="white" stroke="#111827" stroke-width="1.5" />
+        <text x="260" y="272" text-anchor="middle" font-size="18" font-family="Arial">@Duoi</text>
+    </svg>
+</div>
+
+@code {
+    [Parameter]
+    public string Value { get; set; } = "Đảm|Bàng|Tiểu|Vị|Đại";
+
+    private string[] Parts => (Value ?? "Đảm|Bàng|Tiểu|Vị|Đại").Split('|');
+
+    private string Tren => Parts.ElementAtOrDefault(0) ?? "";
+    private string Trai => Parts.ElementAtOrDefault(1) ?? "";
+    private string Giua => Parts.ElementAtOrDefault(2) ?? "";
+    private string Phai => Parts.ElementAtOrDefault(3) ?? "";
+    private string Duoi => Parts.ElementAtOrDefault(4) ?? "";
+}

@@ -1,0 +1,192 @@
+﻿@page "/doctor/diseases/{Oid:int}"
+
+@using DevExpress.ExpressApp
+@using Microsoft.AspNetCore.Components.Authorization
+@using ybaso.Module.BusinessObjects
+@implements IDisposable
+
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<div class="doctor-page">
+    <DoctorSidebar />
+
+    <main class="doctor-main">
+        @if (BenhDanh == null)
+        {
+            <div class="mf-alert mf-alert-danger">
+                Không tìm thấy bệnh danh.
+            </div>
+
+            <button class="mf-btn mf-btn-outline" @onclick="GoDiseases">
+                ← Quay lại danh sách
+            </button>
+        }
+        else
+        {
+            <header class="mf-topbar">
+                <div>
+                    <h1>@EmptyText(BenhDanh.Tenbenh)</h1>
+                    <p>Mã bệnh: @EmptyText(BenhDanh.Ma) • STT: @BenhDanh.Stt</p>
+                </div>
+
+                <div class="mf-actions">
+                    <button class="mf-btn mf-btn-outline" @onclick="GoDiseases">
+                        ← Quay lại danh sách
+                    </button>
+                </div>
+            </header>
+
+            <section class="doctor-stats">
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon blue">📘</div>
+                    <div>
+                        <p>Mã bệnh</p>
+                        <h3>@EmptyText(BenhDanh.Ma)</h3>
+                    </div>
+                </div>
+
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon green">✅</div>
+                    <div>
+                        <p>Trạng thái</p>
+                        <h3>@(BenhDanh.SuDung ? "Đang dùng" : "Tạm tắt")</h3>
+                    </div>
+                </div>
+
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon orange">🧠</div>
+                    <div>
+                        <p>Điều kiện</p>
+                        <h3>@BenhDanh.DieuKiens.Count</h3>
+                    </div>
+                </div>
+
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon purple">🌿</div>
+                    <div>
+                        <p>Phác đồ</p>
+                        <h3>@BenhDanh.PhacDoDieuTris.Count</h3>
+                    </div>
+                </div>
+            </section>
+
+            <section class="doctor-detail-page-card">
+                <div class="doctor-detail-page-head">
+                    <div>
+                        <span class="doctor-pill blue">@EmptyText(BenhDanh.Ma)</span>
+                        <h2>@EmptyText(BenhDanh.Tenbenh)</h2>
+                        <p>Thông tin chi tiết bệnh danh phục vụ phân tích và chẩn đoán.</p>
+                    </div>
+
+                    <span class="@GetUseBadgeClass(BenhDanh.SuDung)">
+                        @(BenhDanh.SuDung ? "Đang dùng" : "Tạm tắt")
+                    </span>
+                </div>
+
+                <div class="doctor-detail-page-grid">
+                    <div class="doctor-text-block">
+                        <label>Mô hình</label>
+                        <p>@EmptyText(BenhDanh.MoHinh)</p>
+                    </div>
+
+                    <div class="doctor-text-block">
+                        <label>Lý chứng</label>
+                        <p>@EmptyText(BenhDanh.LyChung)</p>
+                    </div>
+
+                    <div class="doctor-text-block">
+                        <label>Biểu chứng</label>
+                        <p>@EmptyText(BenhDanh.BieuChung)</p>
+                    </div>
+
+                    <div class="doctor-text-block">
+                        <label>Triệu chứng</label>
+                        <p>@EmptyText(BenhDanh.Trieuchung)</p>
+                    </div>
+
+                    <div class="doctor-text-block">
+                        <label>Bệnh cảnh YHHĐ</label>
+                        <p>@EmptyText(BenhDanh.Benhcanh)</p>
+                    </div>
+
+                    <div class="doctor-text-block">
+                        <label>Pháp điều trị</label>
+                        <p>@EmptyText(BenhDanh.Phapdieutri)</p>
+                    </div>
+
+                    <div class="doctor-text-block">
+                        <label>Phương dược</label>
+                        <p>@EmptyText(BenhDanh.Phuongduoc)</p>
+                    </div>
+
+                    <div class="doctor-text-block">
+                        <label>Phương huyệt</label>
+                        <p>@EmptyText(BenhDanh.Phuonghuyet)</p>
+                    </div>
+
+                    <div class="doctor-text-block full">
+                        <label>Ghi chú</label>
+                        <p>@EmptyText(BenhDanh.GhiChu)</p>
+                    </div>
+                </div>
+            </section>
+        }
+    </main>
+</div>
+
+@code {
+    [Parameter]
+    public int Oid { get; set; }
+
+    private IObjectSpace objectSpace;
+    private Benhdanh BenhDanh;
+
+    private string CurrentUserName = "Bác sĩ";
+
+    protected override async Task OnInitializedAsync()
+    {
+        objectSpace = ObjectSpaceFactory.CreateObjectSpace(typeof(Benhdanh));
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        CurrentUserName = authState.User?.Identity?.Name ?? "Bác sĩ";
+
+        BenhDanh = objectSpace.GetObjectByKey<Benhdanh>(Oid);
+    }
+
+    private string EmptyText(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "Chưa có dữ liệu" : value;
+    }
+
+    private string GetUseBadgeClass(bool value)
+    {
+        return value ? "doctor-status success" : "doctor-status danger";
+    }
+
+    private string GetInitials(string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+            return "BS";
+
+        string[] parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length == 1)
+            return parts[0].Substring(0, Math.Min(2, parts[0].Length)).ToUpperInvariant();
+
+        return $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant();
+    }
+
+    private void GoPatients() => Navigation.NavigateTo("/doctor/patients");
+    private void GoExams() => Navigation.NavigateTo("/doctor/exams");
+    private void GoDiseases() => Navigation.NavigateTo("/doctor/diseases");
+    private void GoAcupoints() => Navigation.NavigateTo("/doctor/acupoints");
+    private void GoDiagnosisRules() => Navigation.NavigateTo("/doctor/diagnosis-rules");
+    private void GoTreatmentPlans() => Navigation.NavigateTo("/doctor/treatment-plans");
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+}

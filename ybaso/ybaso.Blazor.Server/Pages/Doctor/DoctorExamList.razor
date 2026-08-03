@@ -1,0 +1,445 @@
+﻿@page "/doctor/exams"
+
+@using DevExpress.Data.Filtering
+@using DevExpress.ExpressApp
+@using Microsoft.AspNetCore.Components.Authorization
+@using ybaso.Module.BusinessObjects
+@implements IDisposable
+
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<div class="doctor-page">
+    <DoctorSidebar />
+
+    <main class="doctor-main">
+        <header class="mf-topbar">
+            <div>
+                <h1>Danh sách ca khám</h1>
+                <p>Quản lý ca khám, mở nhanh màn hình nhập số đo và phân tích chẩn đoán.</p>
+            </div>
+
+            <div class="mf-actions">
+                <div class="mf-search">
+                    <span>🔍</span>
+                    <input placeholder="Tìm ca khám, bệnh nhân, trạng thái..."
+                           @bind="SearchText"
+                           @bind:event="oninput" />
+                </div>
+
+                <button class="mf-btn mf-btn-outline" @onclick="ReloadData">
+                    Làm mới
+                </button>
+
+                <button class="mf-btn mf-btn-primary" @onclick="CreateExam">
+                    + Tạo ca khám
+                </button>
+            </div>
+        </header>
+
+        @if (!string.IsNullOrWhiteSpace(Message))
+        {
+            <div class="@MessageClass">
+                @Message
+            </div>
+        }
+
+        <section class="doctor-stats">
+            <div class="doctor-stat-card">
+                <div class="doctor-stat-icon blue">🩺</div>
+                <div>
+                    <p>Tổng ca khám</p>
+                    <h3>@TongCaKham</h3>
+                </div>
+            </div>
+
+            <div class="doctor-stat-card">
+                <div class="doctor-stat-icon orange">⏳</div>
+                <div>
+                    <p>Chờ khám</p>
+                    <h3>@CaChoKham</h3>
+                </div>
+            </div>
+
+            <div class="doctor-stat-card">
+                <div class="doctor-stat-icon green">✅</div>
+                <div>
+                    <p>Đã khám</p>
+                    <h3>@CaDaKham</h3>
+                </div>
+            </div>
+
+            <div class="doctor-stat-card">
+                <div class="doctor-stat-icon purple">📅</div>
+                <div>
+                    <p>Hôm nay</p>
+                    <h3>@CaHomNay</h3>
+                </div>
+            </div>
+        </section>
+
+        <section class="mf-card">
+            <div class="mf-card-head">
+                <div>
+                    <h2>Ca khám</h2>
+                    <p>Hiển thị @DanhSachLoc.Count() trong tổng số @TongCaKham ca khám.</p>
+                </div>
+
+                <div class="exam-filter-group">
+                    <button class="@GetFilterButtonClass("all")" @onclick='() => SetFilter("all")'>
+                        Tất cả
+                    </button>
+
+                    <button class="@GetFilterButtonClass("today")" @onclick='() => SetFilter("today")'>
+                        Hôm nay
+                    </button>
+
+                    <button class="@GetFilterButtonClass("waiting")" @onclick='() => SetFilter("waiting")'>
+                        Chờ khám
+                    </button>
+
+                    <button class="@GetFilterButtonClass("done")" @onclick='() => SetFilter("done")'>
+                        Đã khám
+                    </button>
+                </div>
+            </div>
+
+            <table class="mf-table">
+                <thead>
+                    <tr>
+                        <th>Ca khám</th>
+                        <th>Bệnh nhân</th>
+                        <th>Bác sĩ</th>
+                        <th>Ngày khám</th>
+                        <th>Tuổi</th>
+                        <th>Loại khám</th>
+                        <th>Trạng thái</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var item in DanhSachLoc)
+                    {
+                        <tr>
+                            <td>
+                                <div class="doctor-cell-main">
+                                    <div class="doctor-circle">CK</div>
+
+                                    <div>
+                                        <strong>@GetTenCaKham(item)</strong>
+                                        <small>ID: CK-@item.Oid.ToString("0000")</small>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <td>
+                                <div class="doctor-cell-main">
+                                    <div class="doctor-circle patient">
+                                        @GetInitials(GetTenBenhNhan(item))
+                                    </div>
+
+                                    <div>
+                                        <strong>@GetTenBenhNhan(item)</strong>
+                                        <small>@GetDienThoaiBenhNhan(item)</small>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <td>@GetTenBacSi(item)</td>
+                            <td>@FormatDateTime(item.NgayCT)</td>
+                            <td>@item.Tuoi</td>
+                            <td>@item.LoaiCakham</td>
+
+                            <td>
+                                <span class="@GetStatusClass(item)">
+                                    @GetTrangThaiText(item)
+                                </span>
+                            </td>
+
+                            <td>
+                                <button class="doctor-table-btn" @onclick="() => OpenExam(item.Oid)">
+                                    Vào khám
+                                </button>
+
+                                <button class="doctor-table-btn light" @onclick="() => MarkDangKham(item.Oid)">
+                                    Đang khám
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (!DanhSachLoc.Any())
+            {
+                <div class="mf-empty">
+                    Không có ca khám phù hợp.
+                </div>
+            }
+        </section>
+    </main>
+</div>
+
+@code {
+    private IObjectSpace objectSpace;
+
+    private string CurrentUserName = "Bác sĩ";
+    private string SearchText = "";
+    private string FilterMode = "all";
+
+    private string Message = "";
+    private string MessageClass = "mf-alert mf-alert-success";
+
+    private Nhanvien BacSiHienTai;
+    private List<Cakham> DanhSachCaKham = new();
+
+    private int TongCaKham => DanhSachCaKham.Count;
+
+    private int CaHomNay => DanhSachCaKham.Count(x => x.NgayCT.Date == DateTime.Today);
+
+    private int CaChoKham => DanhSachCaKham.Count(x => IsTrangThai(x, "ChoKham"));
+
+    private int CaDaKham => DanhSachCaKham.Count(x => IsTrangThai(x, "DaKham"));
+
+    private IEnumerable<Cakham> DanhSachLoc
+    {
+        get
+        {
+            IEnumerable<Cakham> query = DanhSachCaKham
+                .OrderByDescending(x => x.NgayCT);
+
+            if (FilterMode == "today")
+            {
+                query = query.Where(x => x.NgayCT.Date == DateTime.Today);
+            }
+
+            if (FilterMode == "waiting")
+            {
+                query = query.Where(x => IsTrangThai(x, "ChoKham"));
+            }
+
+            if (FilterMode == "done")
+            {
+                query = query.Where(x => IsTrangThai(x, "DaKham"));
+            }
+
+            if (string.IsNullOrWhiteSpace(SearchText))
+                return query;
+
+            string keyword = SearchText.Trim().ToLowerInvariant();
+
+            return query.Where(x =>
+                GetTenCaKham(x).ToLowerInvariant().Contains(keyword) ||
+                GetTenBenhNhan(x).ToLowerInvariant().Contains(keyword) ||
+                GetTenBacSi(x).ToLowerInvariant().Contains(keyword) ||
+                GetTrangThaiText(x).ToLowerInvariant().Contains(keyword)
+            );
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        objectSpace = ObjectSpaceFactory.CreateObjectSpace(typeof(Cakham));
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        CurrentUserName = authState.User?.Identity?.Name ?? "Bác sĩ";
+
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        BacSiHienTai = objectSpace.FindObject<Nhanvien>(
+            CriteriaOperator.Parse("TaiKhoanDangNhap.UserName = ?", CurrentUserName)
+        );
+
+        IEnumerable<Cakham> query = objectSpace.GetObjects<Cakham>();
+
+        if (BacSiHienTai != null)
+        {
+            query = query.Where(x => x.Bacsi != null && x.Bacsi.Oid == BacSiHienTai.Oid);
+        }
+
+        DanhSachCaKham = query
+            .OrderByDescending(x => x.NgayCT)
+            .ToList();
+    }
+
+    private void ReloadData()
+    {
+        objectSpace.Refresh();
+        LoadData();
+
+        MessageClass = "mf-alert mf-alert-success";
+        Message = "Đã làm mới danh sách ca khám.";
+    }
+
+    private void CreateExam()
+    {
+        try
+        {
+            Cakham caKham = objectSpace.CreateObject<Cakham>();
+
+            caKham.NgayCT = DateTime.Now;
+            caKham.TrangThai = TrangThaiCaKham.ChoKham;
+            caKham.LoaiCakham = LoaiCaKham.TrucTiep;
+            caKham.LoaiLuotKham = LoaiLuotKham.BenhNhanMoi;
+            caKham.NhietDoMoiTruong = 26.3;
+
+            if (BacSiHienTai != null)
+                caKham.Bacsi = BacSiHienTai;
+
+            objectSpace.CommitChanges();
+
+            Navigation.NavigateTo($"/doctor/exams/{caKham.Oid}");
+        }
+        catch (Exception ex)
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Lỗi khi tạo ca khám: " + ex.Message;
+        }
+    }
+
+    private void OpenExam(int oid)
+    {
+        Navigation.NavigateTo($"/doctor/exams/{oid}");
+    }
+
+    private void MarkDangKham(int oid)
+    {
+        try
+        {
+            Cakham caKham = objectSpace.GetObjectByKey<Cakham>(oid);
+
+            if (caKham == null)
+            {
+                MessageClass = "mf-alert mf-alert-danger";
+                Message = "Không tìm thấy ca khám.";
+                return;
+            }
+
+            caKham.TrangThai = TrangThaiCaKham.DangKham;
+
+            objectSpace.CommitChanges();
+
+            MessageClass = "mf-alert mf-alert-success";
+            Message = "Đã chuyển trạng thái ca khám sang Đang khám.";
+
+            LoadData();
+        }
+        catch (Exception ex)
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Lỗi khi cập nhật trạng thái: " + ex.Message;
+        }
+    }
+
+    private void SetFilter(string mode)
+    {
+        FilterMode = mode;
+    }
+
+    private string GetFilterButtonClass(string mode)
+    {
+        if (FilterMode == mode)
+            return "exam-filter-btn active";
+
+        return "exam-filter-btn";
+    }
+
+    private string GetTenCaKham(Cakham item)
+    {
+        if (item == null)
+            return "";
+
+        if (!string.IsNullOrWhiteSpace(item.TenCaKham))
+            return item.TenCaKham;
+
+        return $"{GetTenBenhNhan(item)} - {item.NgayCT:dd/MM/yyyy HH:mm}";
+    }
+
+    private string GetTenBenhNhan(Cakham item)
+    {
+        return item?.BenhNhan?.HoTen ?? "Chưa chọn bệnh nhân";
+    }
+
+    private string GetDienThoaiBenhNhan(Cakham item)
+    {
+        return item?.BenhNhan?.Dienthoai ?? "Chưa có SĐT";
+    }
+
+    private string GetTenBacSi(Cakham item)
+    {
+        return item?.Bacsi?.HoTen ?? "Chưa chọn bác sĩ";
+    }
+
+    private string GetTrangThaiText(Cakham item)
+    {
+        if (item == null)
+            return "";
+
+        return item.TrangThai.ToString();
+    }
+
+    private bool IsTrangThai(Cakham item, string expected)
+    {
+        if (item == null)
+            return false;
+
+        return item.TrangThai.ToString().Equals(expected, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string GetStatusClass(Cakham item)
+    {
+        string value = GetTrangThaiText(item).ToLowerInvariant();
+
+        if (value.Contains("cho"))
+            return "doctor-status warning";
+
+        if (value.Contains("dang"))
+            return "doctor-status info";
+
+        if (value.Contains("da") && !value.Contains("huy"))
+            return "doctor-status success";
+
+        if (value.Contains("huy"))
+            return "doctor-status danger";
+
+        return "doctor-status neutral";
+    }
+
+    private string FormatDateTime(DateTime date)
+    {
+        if (date == DateTime.MinValue)
+            return "--";
+
+        return date.ToString("dd/MM/yyyy HH:mm");
+    }
+
+    private string GetInitials(string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+            return "BS";
+
+        string[] parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length == 1)
+            return parts[0].Substring(0, Math.Min(2, parts[0].Length)).ToUpperInvariant();
+
+        return $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant();
+    }
+
+    private void GoPatients() => Navigation.NavigateTo("/doctor/patients");
+    private void GoExams() => Navigation.NavigateTo("/doctor/exams");
+    private void GoDiseases() => Navigation.NavigateTo("/doctor/diseases");
+    private void GoAcupoints() => Navigation.NavigateTo("/doctor/acupoints");
+    private void GoDiagnosisRules() => Navigation.NavigateTo("/doctor/diagnosis-rules");
+    private void GoTreatmentPlans() => Navigation.NavigateTo("/doctor/treatment-plans");
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+}

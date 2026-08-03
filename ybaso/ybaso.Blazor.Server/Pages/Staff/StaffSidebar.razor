@@ -1,0 +1,342 @@
+﻿@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Authorization
+@using ybaso.Blazor.Server.Shared
+
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+
+<aside class="staff-sidebar">
+
+    <div class="staff-brand natcare-sidebar-brand">
+        <img class="natcare-sidebar-logo"
+             src="images/natcare-logo.png"
+             alt="NATCare - Y học cổ truyền" />
+
+        <div class="natcare-workspace-label">
+            Staff Workspace
+        </div>
+    </div>
+
+    <nav class="staff-menu">
+
+        <div class="staff-menu-group">
+
+            <button class="staff-menu-group-title"
+                    type="button">
+                <span>📁</span>
+                <span>Tiếp nhận &amp; Khám</span>
+            </button>
+
+            <button class="@GetMenuClass("patients")"
+                    type="button"
+                    @onclick="GoPatients">
+
+                <span class="staff-menu-icon">
+                    👥
+                </span>
+
+                <span>Bệnh nhân</span>
+            </button>
+
+            <button class="@GetMenuClass("exams")"
+                    type="button"
+                    @onclick="GoExams">
+
+                <span class="staff-menu-icon">
+                    🩺
+                </span>
+
+                <span>Ca khám</span>
+            </button>
+            <button class="@GetMenuClass("diseases")"
+                    type="button"
+                    @onclick="GoDiseases">
+
+                <span class="staff-menu-icon">
+                    📘
+                </span>
+
+                <span>Bệnh danh</span>
+            </button>
+
+
+        </div>
+
+
+        <div class="staff-menu-group">
+
+            <button class="staff-menu-group-title"
+                    type="button">
+                <span>📁</span>
+                <span>Kho dược</span>
+            </button>
+
+            <button class="@GetMenuClass("medicines")"
+                    type="button"
+                    @onclick="GoMedicines">
+
+                <span class="staff-menu-icon">
+                    💊
+                </span>
+
+                <span>Danh mục thuốc</span>
+            </button>
+
+            <button class="@GetMenuClass("herbs")"
+                    type="button"
+                    @onclick="GoHerbs">
+
+                <span class="staff-menu-icon">
+                    🌿
+                </span>
+
+                <span>Dược liệu</span>
+            </button>
+
+            <button class="@GetMenuClass("imports")"
+                    type="button"
+                    @onclick="GoImports">
+
+                <span class="staff-menu-icon">
+                    📥
+                </span>
+
+                <span>Phiếu nhập kho</span>
+            </button>
+
+            <button class="@GetMenuClass("exports")"
+                    type="button"
+                    @onclick="GoExports">
+
+                <span class="staff-menu-icon">
+                    📤
+                </span>
+
+                <span>Phiếu xuất kho</span>
+            </button>
+
+        </div>
+
+        <div class="staff-menu-group">
+
+            <button class="staff-menu-group-title"
+                    type="button">
+                <span>📁</span>
+                <span>Báo cáo</span>
+            </button>
+
+            <button class="@GetMenuClass("reports")"
+                    type="button"
+                    @onclick="GoReports">
+
+                <span class="staff-menu-icon">
+                    📊
+                </span>
+
+                <span>Báo cáo</span>
+            </button>
+
+        </div>
+
+    </nav>
+
+    <div class="staff-sidebar-footer">
+
+        <div class="staff-user-box">
+
+            <div class="staff-avatar">
+                @UserInitials
+            </div>
+
+            <div class="staff-user-content">
+
+                <div class="staff-user-name">
+                    @CurrentUserName
+                </div>
+
+                <div class="staff-user-role">
+                    Nhân viên
+                </div>
+
+            </div>
+
+        </div>
+
+        <MediFlowLogoutButton />
+
+    </div>
+
+</aside>
+
+@code {
+    [Parameter]
+    public string ActiveMenu { get; set; } =
+        string.Empty;
+
+    private string CurrentUserName =
+        "Nhân viên";
+
+    private string UserInitials =
+        "NV";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            AuthenticationState authenticationState =
+                await AuthStateProvider
+                    .GetAuthenticationStateAsync();
+
+            var user =
+                authenticationState.User;
+
+            if (user.Identity != null &&
+                user.Identity.IsAuthenticated &&
+                !string.IsNullOrWhiteSpace(
+                    user.Identity.Name))
+            {
+                CurrentUserName =
+                    user.Identity.Name;
+
+                UserInitials =
+                    GetInitials(
+                        CurrentUserName
+                    );
+            }
+        }
+        catch (Exception exception)
+        {
+            Console.Error.WriteLine(
+                "Không thể đọc thông tin nhân viên: "
+                + exception
+            );
+
+            CurrentUserName =
+                "Nhân viên";
+
+            UserInitials =
+                "NV";
+        }
+    }
+    private void GoDiseases()
+    {
+        Navigation.NavigateTo("/staff/diseases");
+    }
+
+    private string GetMenuClass(
+        string menuName)
+    {
+        bool isActive =
+            string.Equals(
+                ActiveMenu,
+                menuName,
+                StringComparison.OrdinalIgnoreCase
+            );
+
+        return isActive
+            ? "staff-menu-item active"
+            : "staff-menu-item";
+    }
+
+    private void GoPatients()
+    {
+        Navigation.NavigateTo(
+            "/staff/patients"
+        );
+    }
+
+    private void GoExams()
+    {
+        Navigation.NavigateTo(
+            "/staff/exams"
+        );
+    }
+
+    private void GoMedicines()
+    {
+        Navigation.NavigateTo(
+            "/staff/medicines"
+        );
+    }
+
+    private void GoHerbs()
+    {
+        Navigation.NavigateTo(
+            "/staff/herbs"
+        );
+    }
+
+    private void GoImports()
+    {
+        Navigation.NavigateTo(
+            "/staff/imports"
+        );
+    }
+
+    private void GoExports()
+    {
+        Navigation.NavigateTo(
+            "/staff/exports"
+        );
+    }
+
+    private void GoReports()
+    {
+        Navigation.NavigateTo(
+            "/staff/reports"
+        );
+    }
+
+    private static string GetInitials(
+        string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(
+                fullName))
+        {
+            return "NV";
+        }
+
+        string[] nameParts =
+            fullName.Split(
+                ' ',
+                StringSplitOptions
+                    .RemoveEmptyEntries
+            );
+
+        if (nameParts.Length == 0)
+        {
+            return "NV";
+        }
+
+        if (nameParts.Length == 1)
+        {
+            string singleName =
+                nameParts[0];
+
+            int characterCount =
+                Math.Min(
+                    2,
+                    singleName.Length
+                );
+
+            return singleName
+                .Substring(
+                    0,
+                    characterCount
+                )
+                .ToUpperInvariant();
+        }
+
+        char firstCharacter =
+            nameParts[0][0];
+
+        char lastCharacter =
+            nameParts[
+                nameParts.Length - 1
+            ][0];
+
+        return
+            $"{firstCharacter}{lastCharacter}"
+                .ToUpperInvariant();
+    }
+}

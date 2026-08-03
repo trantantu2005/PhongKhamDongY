@@ -1,0 +1,12 @@
+<Solution>
+  <Configurations>
+    <BuildType Name="Debug" />
+    <BuildType Name="EasyTest" />
+    <BuildType Name="Release" />
+  </Configurations>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+  </Folder>
+  <Project Path="ybaso/ybaso.Blazor.Server/ybaso.Blazor.Server.csproj" />
+  <Project Path="ybaso/ybaso.Module/ybaso.Module.csproj" />
+</Solution>

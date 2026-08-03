@@ -1,0 +1,1054 @@
+﻿@page "/staff/diseases"
+
+@using System.Linq
+@using DevExpress.ExpressApp
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.JSInterop
+@using ybaso.Module.BusinessObjects
+
+@implements IDisposable
+
+@attribute [Authorize(Roles = "NhanVien,Admin")]
+
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject IJSRuntime JS
+
+<div class="staff-page">
+
+    <StaffSidebar ActiveMenu="diseases" />
+
+    <main class="staff-main staff-disease-main">
+
+        @* =========================
+           TIÊU ĐỀ TRANG
+           ========================= *@
+        <header class="mf-topbar">
+
+            <div>
+                <h1>Bệnh danh</h1>
+
+                <p>
+                    Quản lý bệnh danh, triệu chứng, bệnh cảnh
+                    và phương pháp điều trị.
+                </p>
+            </div>
+
+            <div class="mf-actions">
+
+                <div class="mf-search">
+                    <span>🔍</span>
+
+                    <input type="text"
+                           placeholder="Tìm mã bệnh, bệnh danh, triệu chứng..."
+                           @bind="SearchText"
+                           @bind:event="oninput" />
+                </div>
+
+                <button type="button"
+                        class="mf-btn mf-btn-outline"
+                        @onclick="ReloadData">
+                    Làm mới
+                </button>
+
+                <button type="button"
+                        class="mf-btn mf-btn-primary"
+                        @onclick="StartAdd">
+                    + Thêm bệnh danh
+                </button>
+
+            </div>
+
+        </header>
+
+        @* =========================
+           THÔNG BÁO
+           ========================= *@
+        @if (!string.IsNullOrWhiteSpace(Message))
+        {
+            <div class="@MessageClass">
+                @Message
+            </div>
+        }
+
+        @* =========================
+           THỐNG KÊ
+           ========================= *@
+        <section class="staff-stats">
+
+            <div class="staff-stat-card">
+                <div class="staff-stat-icon teal">
+                    📘
+                </div>
+
+                <div>
+                    <p>Tổng bệnh danh</p>
+                    <h3>@TongBenhDanh</h3>
+                </div>
+            </div>
+
+            <div class="staff-stat-card">
+                <div class="staff-stat-icon green">
+                    ✅
+                </div>
+
+                <div>
+                    <p>Đang sử dụng</p>
+                    <h3>@DangSuDung</h3>
+                </div>
+            </div>
+
+            <div class="staff-stat-card">
+                <div class="staff-stat-icon orange">
+                    🧠
+                </div>
+
+                <div>
+                    <p>Có điều kiện</p>
+                    <h3>@CoDieuKien</h3>
+                </div>
+            </div>
+
+            <div class="staff-stat-card">
+                <div class="staff-stat-icon purple">
+                    🌿
+                </div>
+
+                <div>
+                    <p>Có phác đồ</p>
+                    <h3>@CoPhacDo</h3>
+                </div>
+            </div>
+
+        </section>
+
+        @* =========================
+           FORM THÊM/SỬA
+           ========================= *@
+        @if (ShowForm)
+        {
+            <section class="mf-card">
+
+                <div class="mf-card-head">
+
+                    <div>
+                        <h2>
+                            @(EditingOid.HasValue
+                                ? "Cập nhật bệnh danh"
+                                : "Thêm bệnh danh")
+                        </h2>
+
+                        <p>
+                            Nhập đầy đủ thông tin bệnh danh trước khi lưu.
+                        </p>
+                    </div>
+
+                    <button type="button"
+                            class="mf-btn mf-btn-outline"
+                            @onclick="CancelForm">
+                        Đóng
+                    </button>
+
+                </div>
+
+                <div class="staff-form-grid">
+
+                    <div class="staff-form-group">
+                        <label for="benhDanhStt">
+                            STT
+                        </label>
+
+                        <input id="benhDanhStt"
+                               class="staff-form-control"
+                               type="number"
+                               min="0"
+                               @bind="FormStt" />
+                    </div>
+
+                    <div class="staff-form-group">
+                        <label for="benhDanhMa">
+                            Mã bệnh
+                            <span class="required">*</span>
+                        </label>
+
+                        <input id="benhDanhMa"
+                               class="staff-form-control"
+                               type="text"
+                               maxlength="100"
+                               placeholder="Ví dụ: BD001"
+                               @bind="FormMa" />
+                    </div>
+
+                    <div class="staff-form-group full">
+                        <label for="benhDanhTen">
+                            Tên bệnh danh
+                            <span class="required">*</span>
+                        </label>
+
+                        <input id="benhDanhTen"
+                               class="staff-form-control"
+                               type="text"
+                               maxlength="255"
+                               placeholder="Nhập tên bệnh danh"
+                               @bind="FormTenBenh" />
+                    </div>
+
+                    <div class="staff-form-group full">
+                        <label for="benhDanhTrieuChung">
+                            Triệu chứng
+                        </label>
+
+                        <textarea id="benhDanhTrieuChung"
+                                  class="staff-form-control"
+                                  placeholder="Nhập triệu chứng..."
+                                  @bind="FormTrieuChung"></textarea>
+                    </div>
+
+                    <div class="staff-form-group full">
+                        <label for="benhDanhBenhCanh">
+                            Bệnh cảnh
+                        </label>
+
+                        <textarea id="benhDanhBenhCanh"
+                                  class="staff-form-control"
+                                  placeholder="Nhập bệnh cảnh..."
+                                  @bind="FormBenhCanh"></textarea>
+                    </div>
+
+                    <div class="staff-form-group full">
+                        <label for="benhDanhPhapDieuTri">
+                            Pháp điều trị
+                        </label>
+
+                        <textarea id="benhDanhPhapDieuTri"
+                                  class="staff-form-control"
+                                  placeholder="Nhập pháp điều trị..."
+                                  @bind="FormPhapDieuTri"></textarea>
+                    </div>
+
+                    <div class="staff-form-group full">
+                        <label for="benhDanhPhuongDuoc">
+                            Phương dược
+                        </label>
+
+                        <textarea id="benhDanhPhuongDuoc"
+                                  class="staff-form-control"
+                                  placeholder="Nhập phương dược..."
+                                  @bind="FormPhuongDuoc"></textarea>
+                    </div>
+
+                    <div class="staff-form-group full">
+                        <label for="benhDanhPhuongHuyet">
+                            Phương huyệt
+                        </label>
+
+                        <textarea id="benhDanhPhuongHuyet"
+                                  class="staff-form-control"
+                                  placeholder="Nhập phương huyệt..."
+                                  @bind="FormPhuongHuyet"></textarea>
+                    </div>
+
+                    <div class="staff-form-group full">
+
+                        <label style="display:flex;
+                            flex-direction:row;
+                            align-items:center;
+                            gap:10px;
+                            cursor:pointer;">
+
+                            <input type="checkbox"
+                                   @bind="FormSuDung" />
+
+                            <span>Đang sử dụng</span>
+
+                        </label>
+
+                    </div>
+
+                </div>
+
+                <div class="staff-form-footer">
+
+                    <button type="button"
+                            class="mf-btn mf-btn-outline"
+                            @onclick="CancelForm">
+                        Hủy
+                    </button>
+
+                    <button type="button"
+                            class="mf-btn mf-btn-primary"
+                            @onclick="SaveItem">
+                        💾 Lưu bệnh danh
+                    </button>
+
+                </div>
+
+            </section>
+        }
+
+        @* =========================
+           DANH SÁCH BỆNH DANH
+           ========================= *@
+        <section class="mf-card">
+
+            <div class="mf-card-head">
+
+                <div>
+                    <h2>Danh sách bệnh danh</h2>
+
+                    <p>
+                        Hiển thị @DanhSachLoc.Count()
+                        trong tổng số @TongBenhDanh bệnh danh.
+                    </p>
+                </div>
+
+            </div>
+
+            <div class="staff-table-wrapper">
+
+                <table class="mf-table">
+
+                    <thead>
+                        <tr>
+                            <th>STT</th>
+                            <th>Mã bệnh</th>
+                            <th>Bệnh danh</th>
+                            <th>Triệu chứng</th>
+                            <th>Pháp điều trị</th>
+                            <th>Sử dụng</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        @foreach (Benhdanh item in DanhSachLoc)
+                        {
+                            <tr>
+
+                                <td>
+                                    @item.Stt
+                                </td>
+
+                                <td>
+                                    <span class="staff-status info">
+                                        @EmptyText(item.Ma)
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <div class="staff-cell-main">
+
+                                        <div class="staff-circle">
+                                            BD
+                                        </div>
+
+                                        <div>
+                                            <strong>
+                                                @EmptyText(item.Tenbenh)
+                                            </strong>
+
+                                            <small>
+                                                ID: BD-@item.Oid.ToString("0000")
+                                            </small>
+                                        </div>
+
+                                    </div>
+                                </td>
+
+                                <td>
+                                    @ShortText(
+                                        item.Trieuchung,
+                                        100
+                                    )
+                                </td>
+
+                                <td>
+                                    @ShortText(
+                                        item.Phapdieutri,
+                                        100
+                                    )
+                                </td>
+
+                                <td>
+                                    <span class="@GetUseBadgeClass(item.SuDung)">
+                                        @(item.SuDung
+                                            ? "Đang dùng"
+                                            : "Tạm tắt")
+                                    </span>
+                                </td>
+
+                                <td class="disease-action-column">
+                                    <div class="staff-table-actions disease-row-actions">
+
+                                        <button type="button"
+                                                class="staff-table-btn add"
+                                                @onclick="StartAdd">
+                                            Thêm
+                                        </button>
+
+                                        <button type="button"
+                                                class="staff-table-btn edit"
+                                                @onclick="() => StartEdit(item)">
+                                            Sửa
+                                        </button>
+
+                                        <button type="button"
+                                                class="staff-table-btn delete"
+                                                @onclick="() => DeleteItem(item)">
+                                            Xóa
+                                        </button>
+
+                                    </div>
+                                </td>
+
+                            </tr>
+                        }
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+            @if (!DanhSachLoc.Any())
+            {
+                <div class="mf-empty">
+                    Không tìm thấy bệnh danh phù hợp.
+                </div>
+            }
+
+        </section>
+
+    </main>
+
+</div>
+
+@code {
+    private IObjectSpace objectSpace = null!;
+
+    private string SearchText = string.Empty;
+
+    private string Message = string.Empty;
+
+    private string MessageClass =
+        "mf-alert mf-alert-success";
+
+    private List<Benhdanh> DanhSachBenhDanh =
+        new();
+
+    private bool ShowForm;
+
+    private int? EditingOid;
+
+    private int FormStt;
+
+    private string FormMa =
+        string.Empty;
+
+    private string FormTenBenh =
+        string.Empty;
+
+    private string FormTrieuChung =
+        string.Empty;
+
+    private string FormBenhCanh =
+        string.Empty;
+
+    private string FormPhapDieuTri =
+        string.Empty;
+
+    private string FormPhuongDuoc =
+        string.Empty;
+
+    private string FormPhuongHuyet =
+        string.Empty;
+
+    private bool FormSuDung = true;
+
+    private int TongBenhDanh =>
+        DanhSachBenhDanh.Count;
+
+    private int DangSuDung =>
+        DanhSachBenhDanh.Count(
+            item => item.SuDung
+        );
+
+    private int CoDieuKien
+    {
+        get
+        {
+            try
+            {
+                return DanhSachBenhDanh.Count(
+                    item =>
+                        item.DieuKiens != null &&
+                        item.DieuKiens.Count > 0
+                );
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+    }
+
+    private int CoPhacDo
+    {
+        get
+        {
+            try
+            {
+                return DanhSachBenhDanh.Count(
+                    item =>
+                        item.PhacDoDieuTris != null &&
+                        item.PhacDoDieuTris.Count > 0
+                );
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+    }
+
+    private IEnumerable<Benhdanh> DanhSachLoc
+    {
+        get
+        {
+            IEnumerable<Benhdanh> query =
+                DanhSachBenhDanh
+                    .OrderBy(item => item.Stt)
+                    .ThenBy(item => item.Tenbenh);
+
+            if (string.IsNullOrWhiteSpace(SearchText))
+            {
+                return query;
+            }
+
+            string keyword =
+                SearchText
+                    .Trim()
+                    .ToLowerInvariant();
+
+            return query.Where(item =>
+                ContainsKeyword(item.Ma, keyword) ||
+                ContainsKeyword(item.Tenbenh, keyword) ||
+                ContainsKeyword(item.Trieuchung, keyword) ||
+                ContainsKeyword(item.Benhcanh, keyword) ||
+                ContainsKeyword(item.Phapdieutri, keyword) ||
+                ContainsKeyword(item.Phuongduoc, keyword) ||
+                ContainsKeyword(item.Phuonghuyet, keyword)
+            );
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        try
+        {
+            objectSpace =
+                ObjectSpaceFactory.CreateObjectSpace(
+                    typeof(Benhdanh)
+                );
+
+            LoadData();
+        }
+        catch (Exception exception)
+        {
+            ShowError(
+                "Không thể tải dữ liệu bệnh danh. "
+                + GetErrorMessage(exception)
+            );
+        }
+    }
+
+    private void LoadData()
+    {
+        DanhSachBenhDanh =
+            objectSpace
+                .GetObjects<Benhdanh>()
+                .OrderBy(item => item.Stt)
+                .ThenBy(item => item.Tenbenh)
+                .ToList();
+    }
+
+    private void ReloadData()
+    {
+        try
+        {
+            objectSpace.Refresh();
+
+            LoadData();
+
+            ShowSuccess(
+                "Đã làm mới danh sách bệnh danh."
+            );
+        }
+        catch (Exception exception)
+        {
+            ShowError(
+                "Không thể làm mới danh sách bệnh danh. "
+                + GetErrorMessage(exception)
+            );
+        }
+    }
+
+    private void StartAdd()
+    {
+        EditingOid = null;
+
+        FormStt =
+            DanhSachBenhDanh.Count == 0
+                ? 1
+                : DanhSachBenhDanh.Max(
+                    item => item.Stt
+                ) + 1;
+
+        FormMa = string.Empty;
+        FormTenBenh = string.Empty;
+        FormTrieuChung = string.Empty;
+        FormBenhCanh = string.Empty;
+        FormPhapDieuTri = string.Empty;
+        FormPhuongDuoc = string.Empty;
+        FormPhuongHuyet = string.Empty;
+        FormSuDung = true;
+
+        Message = string.Empty;
+        ShowForm = true;
+    }
+
+    private void StartEdit(Benhdanh item)
+    {
+        if (item == null)
+        {
+            ShowError(
+                "Không tìm thấy bệnh danh cần sửa."
+            );
+
+            return;
+        }
+
+        EditingOid = item.Oid;
+
+        FormStt = item.Stt;
+
+        FormMa =
+            item.Ma ?? string.Empty;
+
+        FormTenBenh =
+            item.Tenbenh ?? string.Empty;
+
+        FormTrieuChung =
+            item.Trieuchung ?? string.Empty;
+
+        FormBenhCanh =
+            item.Benhcanh ?? string.Empty;
+
+        FormPhapDieuTri =
+            item.Phapdieutri ?? string.Empty;
+
+        FormPhuongDuoc =
+            item.Phuongduoc ?? string.Empty;
+
+        FormPhuongHuyet =
+            item.Phuonghuyet ?? string.Empty;
+
+        FormSuDung =
+            item.SuDung;
+
+        Message = string.Empty;
+        ShowForm = true;
+    }
+
+    private void CancelForm()
+    {
+        ShowForm = false;
+        EditingOid = null;
+
+        ResetForm();
+    }
+
+    private void ResetForm()
+    {
+        FormStt = 0;
+        FormMa = string.Empty;
+        FormTenBenh = string.Empty;
+        FormTrieuChung = string.Empty;
+        FormBenhCanh = string.Empty;
+        FormPhapDieuTri = string.Empty;
+        FormPhuongDuoc = string.Empty;
+        FormPhuongHuyet = string.Empty;
+        FormSuDung = true;
+    }
+
+    private void SaveItem()
+    {
+        try
+        {
+            string ma =
+                NormalizeRequiredText(FormMa);
+
+            string tenBenh =
+                NormalizeRequiredText(FormTenBenh);
+
+            if (FormStt < 0)
+            {
+                ShowError(
+                    "STT không được nhỏ hơn 0."
+                );
+
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(ma))
+            {
+                ShowError(
+                    "Vui lòng nhập mã bệnh."
+                );
+
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(tenBenh))
+            {
+                ShowError(
+                    "Vui lòng nhập tên bệnh danh."
+                );
+
+                return;
+            }
+
+            bool trungMa =
+                DanhSachBenhDanh.Any(item =>
+                    item.Oid != EditingOid &&
+                    string.Equals(
+                        item.Ma?.Trim(),
+                        ma,
+                        StringComparison.OrdinalIgnoreCase
+                    )
+                );
+
+            if (trungMa)
+            {
+                ShowError(
+                    $"Mã bệnh '{ma}' đã tồn tại."
+                );
+
+                return;
+            }
+
+            bool dangCapNhat =
+                EditingOid.HasValue;
+
+            Benhdanh item;
+
+            if (dangCapNhat)
+            {
+                item =
+                    objectSpace
+                        .GetObjectByKey<Benhdanh>(
+                            EditingOid!.Value
+                        );
+
+                if (item == null)
+                {
+                    ShowError(
+                        "Không tìm thấy bệnh danh cần cập nhật."
+                    );
+
+                    return;
+                }
+            }
+            else
+            {
+                item =
+                    objectSpace
+                        .CreateObject<Benhdanh>();
+            }
+
+            item.Stt =
+                FormStt;
+
+            item.Ma =
+                ma;
+
+            item.Tenbenh =
+                tenBenh;
+
+            item.Trieuchung =
+                NormalizeOptionalText(
+                    FormTrieuChung
+                );
+
+            item.Benhcanh =
+                NormalizeOptionalText(
+                    FormBenhCanh
+                );
+
+            item.Phapdieutri =
+                NormalizeOptionalText(
+                    FormPhapDieuTri
+                );
+
+            item.Phuongduoc =
+                NormalizeOptionalText(
+                    FormPhuongDuoc
+                );
+
+            item.Phuonghuyet =
+                NormalizeOptionalText(
+                    FormPhuongHuyet
+                );
+
+            item.SuDung =
+                FormSuDung;
+
+            objectSpace.CommitChanges();
+            objectSpace.Refresh();
+
+            LoadData();
+
+            ShowForm = false;
+            EditingOid = null;
+
+            ResetForm();
+
+            ShowSuccess(
+                dangCapNhat
+                    ? "Đã cập nhật bệnh danh thành công."
+                    : "Đã thêm bệnh danh thành công."
+            );
+        }
+        catch (Exception exception)
+        {
+            TryRollback();
+
+            ShowError(
+                "Không thể lưu bệnh danh. "
+                + GetErrorMessage(exception)
+            );
+        }
+    }
+
+    private async Task DeleteItem(
+        Benhdanh item)
+    {
+        if (item == null)
+        {
+            ShowError(
+                "Không tìm thấy bệnh danh cần xóa."
+            );
+
+            return;
+        }
+
+        try
+        {
+            if (item.DieuKiens != null &&
+                item.DieuKiens.Count > 0)
+            {
+                ShowError(
+                    $"Không thể xóa bệnh danh " +
+                    $"'{EmptyText(item.Tenbenh)}' vì đang có " +
+                    "điều kiện chẩn đoán liên quan."
+                );
+
+                return;
+            }
+
+            if (item.PhacDoDieuTris != null &&
+                item.PhacDoDieuTris.Count > 0)
+            {
+                ShowError(
+                    $"Không thể xóa bệnh danh " +
+                    $"'{EmptyText(item.Tenbenh)}' vì đang có " +
+                    "phác đồ điều trị liên quan."
+                );
+
+                return;
+            }
+        }
+        catch (Exception exception)
+        {
+            ShowError(
+                "Không thể kiểm tra dữ liệu liên quan của bệnh danh. "
+                + GetErrorMessage(exception)
+            );
+
+            return;
+        }
+
+        string tenBenhDanh =
+            EmptyText(item.Tenbenh);
+
+        bool confirmed =
+            await JS.InvokeAsync<bool>(
+                "confirm",
+                $"Bạn có chắc muốn xóa bệnh danh " +
+                $"'{tenBenhDanh}' không?"
+            );
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        try
+        {
+            int deletedOid =
+                item.Oid;
+
+            objectSpace.Delete(item);
+            objectSpace.CommitChanges();
+            objectSpace.Refresh();
+
+            LoadData();
+
+            if (EditingOid == deletedOid)
+            {
+                ShowForm = false;
+                EditingOid = null;
+
+                ResetForm();
+            }
+
+            ShowSuccess(
+                $"Đã xóa bệnh danh '{tenBenhDanh}' thành công."
+            );
+        }
+        catch (Exception exception)
+        {
+            TryRollback();
+
+            try
+            {
+                objectSpace.Refresh();
+                LoadData();
+            }
+            catch
+            {
+                // Không làm mất thông báo lỗi ban đầu.
+            }
+
+            ShowError(
+                "Không thể xóa bệnh danh vì dữ liệu đang được sử dụng. "
+                + GetErrorMessage(exception)
+            );
+        }
+    }
+
+    private void TryRollback()
+    {
+        try
+        {
+            objectSpace?.Rollback();
+        }
+        catch
+        {
+            // Không ghi đè lỗi chính.
+        }
+    }
+
+    private void ShowSuccess(
+        string text)
+    {
+        MessageClass =
+            "mf-alert mf-alert-success";
+
+        Message =
+            text;
+    }
+
+    private void ShowError(
+        string text)
+    {
+        MessageClass =
+            "mf-alert mf-alert-danger";
+
+        Message =
+            text;
+    }
+
+    private static bool ContainsKeyword(
+        string value,
+        string keyword)
+    {
+        return (value ?? string.Empty)
+            .ToLowerInvariant()
+            .Contains(keyword);
+    }
+
+    private static string NormalizeRequiredText(
+        string value)
+    {
+        return value?.Trim()
+            ?? string.Empty;
+    }
+
+    private static string NormalizeOptionalText(
+        string value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? string.Empty
+            : value.Trim();
+    }
+
+    private static string EmptyText(
+        string value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? "Chưa có dữ liệu"
+            : value;
+    }
+
+    private static string ShortText(
+        string value,
+        int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "Chưa có dữ liệu";
+        }
+
+        string result =
+            value.Trim();
+
+        if (result.Length <= maxLength)
+        {
+            return result;
+        }
+
+        return result.Substring(
+                   0,
+                   maxLength
+               ) + "...";
+    }
+
+    private static string GetUseBadgeClass(
+        bool value)
+    {
+        return value
+            ? "staff-status success"
+            : "staff-status danger";
+    }
+
+    private static string GetErrorMessage(
+        Exception exception)
+    {
+        Exception currentException =
+            exception;
+
+        while (currentException.InnerException != null)
+        {
+            currentException =
+                currentException.InnerException;
+        }
+
+        return currentException.Message;
+    }
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+}

@@ -1,0 +1,306 @@
+﻿@using Microsoft.AspNetCore.Components
+@using DevExpress.ExpressApp.Blazor
+@using DevExpress.ExpressApp.Blazor.Components
+@using DevExpress.ExpressApp.Blazor.Services
+@using DevExpress.ExpressApp.Blazor.Templates
+@using DevExpress.ExpressApp.Utils
+
+@inherits FrameTemplateComponentBase<MediFlowLogonWindowTemplate>
+@implements IDisposable
+
+@inject ILanguageSwitcherService LanguageSwitcherService
+
+<div id="logon-template-component"
+     class="mf-login-page natcare-login-page">
+
+    <section class="mf-login-showcase">
+        <div class="mf-login-decoration mf-login-decoration-one"></div>
+        <div class="mf-login-decoration mf-login-decoration-two"></div>
+        <div class="mf-login-leaf-decoration"></div>
+
+        <div class="mf-login-showcase-content">
+
+            <!-- Logo NATCare trên máy tính -->
+            <div class="mf-login-brand natcare-login-brand">
+                <img class="natcare-login-desktop-logo"
+                     src="/images/natcare-logo.png?v=20260715-11"
+                     alt="NATCare - Y học cổ truyền" />
+
+                <div class="natcare-login-brand-caption">
+                    Nền tảng quản lý phòng khám Y học cổ truyền
+                </div>
+            </div>
+
+            <div class="mf-login-introduction">
+                <span class="mf-login-introduction-label">
+                    Chăm sóc sức khỏe toàn diện
+                </span>
+
+                <h1>
+                    Quản lý phòng khám<br />
+                    Đông y toàn diện
+                </h1>
+
+                <p>
+                    Kết nối bác sĩ, nhân viên và bệnh nhân trong một hệ thống
+                    thống nhất; hỗ trợ tiếp nhận, chẩn đoán, kê đơn, quản lý
+                    dược liệu và theo dõi quá trình điều trị.
+                </p>
+
+                <div class="mf-login-feature-list">
+
+                    <div class="mf-login-feature">
+                        <div class="mf-login-feature-icon">
+                            🩺
+                        </div>
+
+                        <strong>Khám và chẩn đoán</strong>
+
+                        <span>
+                            Quản lý hồ sơ, ca khám và phác đồ điều trị.
+                        </span>
+                    </div>
+
+                    <div class="mf-login-feature">
+                        <div class="mf-login-feature-icon">
+                            🌿
+                        </div>
+
+                        <strong>Dược liệu Đông y</strong>
+
+                        <span>
+                            Theo dõi danh mục thuốc, nhập kho và xuất kho.
+                        </span>
+                    </div>
+
+                    <div class="mf-login-feature">
+                        <div class="mf-login-feature-icon">
+                            🔐
+                        </div>
+
+                        <strong>Phân quyền bảo mật</strong>
+
+                        <span>
+                            Giao diện và chức năng riêng cho từng vai trò.
+                        </span>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="mf-login-role-list">
+                <span>Bác sĩ</span>
+                <span>Nhân viên</span>
+                <span>Bệnh nhân</span>
+                <span>Quản trị viên</span>
+            </div>
+        </div>
+
+        <div class="mf-login-showcase-footer">
+            © 2026 NATCare — Hệ thống quản lý phòng khám
+            Y học cổ truyền
+        </div>
+    </section>
+
+    <main class="mf-login-panel">
+        <div class="mf-login-card">
+
+            <!-- Logo NATCare trên điện thoại -->
+            <div class="mf-login-mobile-brand">
+                <img class="natcare-login-mobile-logo"
+                     src="/images/natcare-logo.png?v=20260715-11"
+                     alt="NATCare - Y học cổ truyền" />
+            </div>
+
+            <div class="mf-login-card-heading">
+                <span class="mf-login-kicker">
+                    Đăng nhập hệ thống
+                </span>
+
+                <h2>Chào mừng trở lại</h2>
+
+                <p>
+                    Nhập tài khoản và mật khẩu đã được cấp để tiếp tục.
+                </p>
+            </div>
+
+            <SizeModeContainer>
+
+                @if (LanguageSwitcherService.Visible)
+                {
+                    <div class="toolbar-language-switcher-wrapper">
+                        <ToolbarLanguageSwitcher />
+                    </div>
+                }
+
+                <XafErrorBoundary>
+
+                    @if (FrameTemplate.NeedLogonParameters)
+                    {
+                        <div class="mf-login-form-host">
+
+                            <ViewSiteComponent ViewHolder="@FrameTemplate" />
+
+                            <div class="logon-toolbar">
+                                @(FrameTemplate.Toolbar.GetComponentContent())
+                            </div>
+
+                        </div>
+                    }
+
+                    @if (FrameTemplate.NeedLogonParameters &&
+                         ExternalAuthenticationAvailable)
+                    {
+                        <div class="middle-text-separator">
+                            @(
+                                CaptionHelper.GetLocalizedText(
+                                    "Security/LoginPage",
+                                    "ExternalAuthorizationActionSeparator"
+                                )
+                            )
+                        </div>
+                    }
+
+                    @if (ExternalAuthenticationAvailable)
+                    {
+                        @(FrameTemplate.AdditionalToolbar.GetComponentContent())
+                    }
+
+                </XafErrorBoundary>
+
+            </SizeModeContainer>
+
+            <div class="mf-login-security-note">
+                <div class="mf-login-security-icon">
+                    🛡️
+                </div>
+
+                <p>
+                    Thông tin đăng nhập được bảo vệ. Không chia sẻ tài khoản
+                    hoặc mật khẩu cho người khác.
+                </p>
+            </div>
+
+            <div class="mf-login-support">
+                <span>
+                    Bạn gặp khó khăn khi đăng nhập?
+                </span>
+
+                <p>
+                    Liên hệ quản trị viên để được hỗ trợ tài khoản.
+                </p>
+            </div>
+        </div>
+
+        <div class="mf-login-panel-footer">
+            <span>NATCare v1.0</span>
+
+            <div>
+                <span>Bảo mật</span>
+                <span>•</span>
+                <span>Ổn định</span>
+                <span>•</span>
+                <span>Dễ sử dụng</span>
+            </div>
+        </div>
+    </main>
+</div>
+
+@code {
+    private bool _disposed;
+    private bool _additionalToolbarEventRegistered;
+
+    public static RenderFragment Create(
+        MediFlowLogonWindowTemplate logonWindowTemplate)
+    {
+        return builder =>
+        {
+            builder.OpenComponent<MediFlowLogonWindowTemplateComponent>(0);
+
+            builder.AddAttribute(
+                1,
+                nameof(FrameTemplate),
+                logonWindowTemplate);
+
+            builder.CloseComponent();
+        };
+    }
+
+    private bool ExternalAuthenticationAvailable
+    {
+        get
+        {
+            if (FrameTemplate == null)
+            {
+                return false;
+            }
+
+            if (FrameTemplate.AdditionalToolbar == null)
+            {
+                return false;
+            }
+
+            return FrameTemplate.ExternalAuthenticationSchemeCount > 0 &&
+                   FrameTemplate.AdditionalToolbar
+                       .ContainsVisibleActionControl();
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        RegisterAdditionalToolbarEvent();
+    }
+
+    private void RegisterAdditionalToolbarEvent()
+    {
+        if (_additionalToolbarEventRegistered)
+        {
+            return;
+        }
+
+        if (FrameTemplate == null ||
+            FrameTemplate.AdditionalToolbar == null)
+        {
+            return;
+        }
+
+        FrameTemplate.AdditionalToolbar.VisibleChanged +=
+            AdditionalToolbar_VisibilityChanged;
+
+        _additionalToolbarEventRegistered = true;
+    }
+
+    private void AdditionalToolbar_VisibilityChanged(
+        object sender,
+        EventArgs e)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+
+        if (_additionalToolbarEventRegistered &&
+            FrameTemplate != null &&
+            FrameTemplate.AdditionalToolbar != null)
+        {
+            FrameTemplate.AdditionalToolbar.VisibleChanged -=
+                AdditionalToolbar_VisibilityChanged;
+        }
+
+        _additionalToolbarEventRegistered = false;
+    }
+}

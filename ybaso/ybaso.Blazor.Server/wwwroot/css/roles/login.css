@@ -1,0 +1,743 @@
+﻿/* =========================================================
+   NATCARE LOGIN PAGE
+   File: wwwroot/css/roles/login.css
+   ========================================================= */
+
+.mf-login-page {
+    --login-primary: #0b7f78;
+    --login-primary-dark: #075f5a;
+    --login-primary-soft: #dff7f2;
+    --login-accent: #1d4f73;
+    --login-text: #10233d;
+    --login-muted: #66788c;
+    --login-border: #d8e3ec;
+    display: grid;
+    grid-template-columns: minmax(540px, 1.08fr) minmax(520px, 0.92fr);
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: #f4f8fb;
+    color: var(--login-text);
+    font-family: "Segoe UI", Arial, sans-serif;
+}
+
+/* =========================================================
+   KHỐI GIỚI THIỆU BÊN TRÁI
+   ========================================================= */
+
+.mf-login-showcase {
+    position: relative;
+    display: flex;
+    min-height: 100vh;
+    min-height: 100dvh;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 32px 50px 24px;
+    overflow: hidden;
+    background: radial-gradient(circle at 8% 8%, rgba(94, 234, 212, 0.18), transparent 30%), radial-gradient(circle at 94% 90%, rgba(96, 165, 250, 0.16), transparent 33%), linear-gradient(145deg, #073f3b 0%, #086a63 52%, #0b7f78 100%);
+    color: #ffffff;
+}
+
+.mf-login-showcase-content {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    width: 100%;
+    max-width: 700px;
+    flex: 1;
+    flex-direction: column;
+}
+
+.mf-login-decoration {
+    position: absolute;
+    border: 1px solid rgba(255, 255, 255, 0.11);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.mf-login-decoration-one {
+    top: -180px;
+    right: -170px;
+    width: 500px;
+    height: 500px;
+}
+
+.mf-login-decoration-two {
+    right: 90px;
+    bottom: -230px;
+    width: 410px;
+    height: 410px;
+}
+
+.mf-login-leaf-decoration {
+    position: absolute;
+    top: 48%;
+    right: -70px;
+    width: 240px;
+    height: 240px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 70% 30% 70% 30%;
+    transform: rotate(28deg);
+}
+
+.natcare-login-brand {
+    display: flex;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.natcare-login-logo-shell {
+    display: flex;
+    width: 285px;
+    min-height: 108px;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    padding: 10px 15px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 16px 34px rgba(1, 24, 22, 0.18);
+}
+
+.natcare-login-logo {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+}
+
+.natcare-login-brand-caption {
+    padding-left: 4px;
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.mf-login-introduction {
+    margin-top: 42px;
+}
+
+.mf-login-introduction-label {
+    display: inline-flex;
+    min-height: 30px;
+    align-items: center;
+    padding: 0 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #d5fff7;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+
+.mf-login-introduction h1 {
+    margin: 18px 0 14px;
+    color: #ffffff;
+    font-size: clamp(38px, 3.6vw, 56px);
+    font-weight: 750;
+    letter-spacing: -0.045em;
+    line-height: 1.08;
+}
+
+.mf-login-introduction p {
+    max-width: 620px;
+    margin: 0;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.mf-login-feature-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 13px;
+    margin-top: 28px;
+}
+
+.mf-login-feature {
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.09);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(9px);
+}
+
+.mf-login-feature-icon {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    margin-bottom: 11px;
+    place-items: center;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.13);
+    font-size: 17px;
+}
+
+.mf-login-feature strong,
+.mf-login-feature span {
+    display: block;
+}
+
+.mf-login-feature strong {
+    margin-bottom: 6px;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.mf-login-feature span {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.mf-login-role-list {
+    display: flex;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 22px;
+    flex-wrap: wrap;
+}
+
+    .mf-login-role-list span {
+        display: inline-flex;
+        min-height: 29px;
+        align-items: center;
+        padding: 0 11px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 999px;
+        color: rgba(255, 255, 255, 0.82);
+        font-size: 10px;
+        font-weight: 650;
+    }
+
+.mf-login-showcase-footer {
+    position: relative;
+    z-index: 2;
+    margin-top: 18px;
+    color: rgba(255, 255, 255, 0.54);
+    font-size: 10px;
+}
+
+/* =========================================================
+   KHỐI ĐĂNG NHẬP BÊN PHẢI
+   ========================================================= */
+
+.mf-login-panel {
+    display: flex;
+    min-height: 100vh;
+    min-height: 100dvh;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: 30px 46px 22px;
+    background: radial-gradient(circle at 100% 0, rgba(29, 78, 216, 0.07), transparent 29%), radial-gradient(circle at 0 100%, rgba(13, 148, 136, 0.06), transparent 28%), #f6f9fc;
+}
+
+.mf-login-card {
+    width: 100%;
+    max-width: 500px;
+    box-sizing: border-box;
+    padding: 34px 38px 28px;
+    border: 1px solid var(--login-border);
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.97);
+    box-shadow: 0 24px 64px rgba(15, 35, 54, 0.12);
+}
+
+.mf-login-mobile-brand {
+    display: none;
+    justify-content: center;
+    margin-bottom: 25px;
+}
+
+.natcare-login-mobile-logo {
+    display: block;
+    width: 205px;
+    max-width: 100%;
+    height: auto;
+}
+
+.mf-login-card-heading {
+    margin-bottom: 24px;
+}
+
+.mf-login-kicker {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--login-primary);
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.mf-login-card-heading h2 {
+    margin: 0;
+    color: #0f1f35;
+    font-size: 29px;
+    font-weight: 750;
+    letter-spacing: -0.035em;
+}
+
+.mf-login-card-heading p {
+    margin: 8px 0 0;
+    color: var(--login-muted);
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+/* Form do DevExpress XAF sinh ra */
+
+.mf-login-form-host {
+    width: 100%;
+}
+
+    .mf-login-form-host > div {
+        width: 100%;
+        max-width: none;
+        margin: 0;
+    }
+
+    .mf-login-form-host label,
+    .mf-login-form-host .dxbl-text-edit-label {
+        margin-bottom: 7px;
+        color: #263b52;
+        font-size: 12px;
+        font-weight: 650;
+    }
+
+    .mf-login-form-host input,
+    .mf-login-form-host .form-control,
+    .mf-login-form-host .dxbl-text-edit-input {
+        width: 100%;
+        min-height: 48px;
+        box-sizing: border-box;
+        padding-right: 13px;
+        padding-left: 13px;
+        border: 1px solid #c9d6e2;
+        border-radius: 11px;
+        background: #ffffff;
+        color: #17263a;
+        font-family: inherit;
+        font-size: 14px;
+        font-weight: 400;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+
+        .mf-login-form-host input::placeholder {
+            color: #9aa9b8;
+        }
+
+        .mf-login-form-host input:focus,
+        .mf-login-form-host .form-control:focus,
+        .mf-login-form-host .dxbl-text-edit-input:focus {
+            border-color: var(--login-primary);
+            background: #ffffff;
+            box-shadow: 0 0 0 4px rgba(11, 127, 120, 0.12);
+            outline: none;
+        }
+
+    .mf-login-form-host .form-group,
+    .mf-login-form-host .mb-3 {
+        margin-bottom: 16px !important;
+    }
+
+    .mf-login-form-host button,
+    .mf-login-form-host .btn,
+    .mf-login-form-host .dxbl-btn {
+        min-height: 46px;
+        border-radius: 11px;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 650;
+    }
+
+        .mf-login-form-host button[type="submit"],
+        .mf-login-form-host .btn-primary,
+        .mf-login-form-host .logon-toolbar .dxbl-btn {
+            width: 100%;
+            border-color: var(--login-primary);
+            background: linear-gradient(135deg, var(--login-primary), #0b9288);
+            color: #ffffff;
+            box-shadow: 0 10px 22px rgba(11, 127, 120, 0.22);
+        }
+
+            .mf-login-form-host button[type="submit"]:hover,
+            .mf-login-form-host .btn-primary:hover,
+            .mf-login-form-host .logon-toolbar .dxbl-btn:hover {
+                border-color: var(--login-primary-dark);
+                background: linear-gradient(135deg, var(--login-primary-dark), var(--login-primary));
+                transform: translateY(-1px);
+            }
+
+    .mf-login-form-host .validation-message,
+    .mf-login-form-host .text-danger,
+    .mf-login-form-host .alert-danger {
+        color: #b42318;
+        font-size: 11px;
+    }
+
+.mf-login-security-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 20px;
+    padding: 12px 13px;
+    border: 1px solid #bceee5;
+    border-radius: 12px;
+    background: #effcf9;
+}
+
+.mf-login-security-icon {
+    flex: 0 0 auto;
+    font-size: 17px;
+}
+
+.mf-login-security-note p {
+    margin: 0;
+    color: #426460;
+    font-size: 11px;
+    line-height: 1.55;
+}
+
+.mf-login-support {
+    margin-top: 19px;
+    padding-top: 18px;
+    border-top: 1px solid #e1e8ef;
+    text-align: center;
+}
+
+    .mf-login-support span {
+        color: #263b52;
+        font-size: 12px;
+        font-weight: 650;
+    }
+
+    .mf-login-support p {
+        margin: 5px 0 0;
+        color: var(--login-muted);
+        font-size: 11px;
+        line-height: 1.5;
+    }
+
+.mf-login-panel-footer {
+    display: flex;
+    width: 100%;
+    max-width: 500px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-top: 17px;
+    color: #8ba0b4;
+    font-size: 10px;
+}
+
+    .mf-login-panel-footer > div {
+        display: flex;
+        gap: 7px;
+    }
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1220px) {
+    .mf-login-page {
+        grid-template-columns: minmax(470px, 0.95fr) minmax(500px, 1.05fr);
+    }
+
+    .mf-login-showcase {
+        padding-right: 36px;
+        padding-left: 36px;
+    }
+
+    .natcare-login-logo-shell {
+        width: 255px;
+        min-height: 98px;
+    }
+
+    .mf-login-introduction {
+        margin-top: 34px;
+    }
+
+    .mf-login-feature-list {
+        grid-template-columns: 1fr;
+        gap: 9px;
+        margin-top: 23px;
+    }
+
+    .mf-login-feature {
+        display: grid;
+        grid-template-columns: 38px 1fr;
+        column-gap: 11px;
+        padding: 11px 13px;
+    }
+
+    .mf-login-feature-icon {
+        grid-row: 1 / 3;
+        margin-bottom: 0;
+    }
+}
+
+@media (max-width: 940px) {
+    .mf-login-page {
+        display: block;
+    }
+
+    .mf-login-showcase {
+        display: none;
+    }
+
+    .mf-login-panel {
+        min-height: 100vh;
+        min-height: 100dvh;
+        padding: 28px 20px 22px;
+    }
+
+    .mf-login-mobile-brand {
+        display: flex;
+    }
+}
+
+@media (max-width: 540px) {
+    .mf-login-panel {
+        justify-content: flex-start;
+        padding: 16px 11px;
+    }
+
+    .mf-login-card {
+        max-width: 100%;
+        padding: 26px 20px 23px;
+        border-radius: 18px;
+    }
+
+    .natcare-login-mobile-logo {
+        width: 185px;
+    }
+
+    .mf-login-card-heading h2 {
+        font-size: 25px;
+    }
+
+    .mf-login-panel-footer {
+        align-items: center;
+        flex-direction: column;
+        text-align: center;
+    }
+}
+
+.mf-login-redirect {
+    display: flex;
+    min-height: 100vh;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 14px;
+    background: #f4f8fb;
+    color: #0f172a;
+    font-family: "Segoe UI", Arial, sans-serif;
+}
+
+/* =========================================================
+   LOGO NATCARE ĐĂNG NHẬP - PHIÊN BẢN HOÀN CHỈNH
+   ========================================================= */
+
+/* Khối chứa logo bên trái */
+.mf-login-showcase .natcare-login-brand {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    width: 270px !important;
+    min-width: 270px !important;
+    max-width: 270px !important;
+    margin: 0 0 20px !important;
+    padding: 0 !important;
+    gap: 5px !important;
+    overflow: visible !important;
+}
+
+/* Hỗ trợ cấu trúc logo cũ có logo-shell */
+.mf-login-showcase .natcare-login-logo-shell {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    width: 270px !important;
+    min-width: 270px !important;
+    max-width: 270px !important;
+    height: 108px !important;
+    min-height: 108px !important;
+    max-height: 108px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+}
+
+    /*
+   Áp dụng cho cả cấu trúc cũ và mới:
+   - natcare-login-desktop-logo
+   - natcare-login-logo
+   - ảnh trực tiếp bên trong natcare-login-brand
+*/
+    .mf-login-showcase .natcare-login-brand > img,
+    .mf-login-showcase .natcare-login-logo-shell > img,
+    .mf-login-showcase .natcare-login-desktop-logo,
+    .mf-login-showcase .natcare-login-logo {
+        display: block !important;
+        flex: 0 0 auto !important;
+        width: 260px !important;
+        min-width: 260px !important;
+        max-width: 260px !important;
+        height: 104px !important;
+        min-height: 104px !important;
+        max-height: 104px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        object-fit: contain !important;
+        object-position: left center !important;
+        transform: none !important;
+        scale: 1 !important;
+    }
+
+/* Chú thích dưới logo */
+.mf-login-showcase .natcare-login-brand-caption {
+    display: block !important;
+    width: 270px !important;
+    max-width: 270px !important;
+    margin: 0 !important;
+    padding: 0 0 0 2px !important;
+    color: rgba(255, 255, 255, 0.78) !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    line-height: 1.4 !important;
+    letter-spacing: 0.02em !important;
+}
+
+/* Cân lại khoảng cách sau logo */
+.mf-login-showcase .mf-login-introduction {
+    margin-top: 18px !important;
+}
+
+/* Logo điện thoại mặc định ẩn trên máy tính */
+.mf-login-panel .mf-login-mobile-brand {
+    display: none !important;
+}
+
+/* Logo trong form đăng nhập trên điện thoại */
+.mf-login-panel .natcare-login-mobile-logo {
+    display: block !important;
+    width: 210px !important;
+    min-width: 0 !important;
+    max-width: 85% !important;
+    height: auto !important;
+    max-height: 90px !important;
+    object-fit: contain !important;
+}
+
+/* Màn hình laptop nhỏ */
+@media (max-width: 1220px) and (min-width: 941px) {
+    .mf-login-showcase .natcare-login-brand,
+    .mf-login-showcase .natcare-login-logo-shell {
+        width: 240px !important;
+        min-width: 240px !important;
+        max-width: 240px !important;
+    }
+
+    .mf-login-showcase .natcare-login-logo-shell {
+        height: 96px !important;
+        min-height: 96px !important;
+        max-height: 96px !important;
+    }
+
+        .mf-login-showcase .natcare-login-brand > img,
+        .mf-login-showcase .natcare-login-logo-shell > img,
+        .mf-login-showcase .natcare-login-desktop-logo,
+        .mf-login-showcase .natcare-login-logo {
+            width: 230px !important;
+            min-width: 230px !important;
+            max-width: 230px !important;
+            height: 92px !important;
+            min-height: 92px !important;
+            max-height: 92px !important;
+        }
+
+    .mf-login-showcase .natcare-login-brand-caption {
+        width: 240px !important;
+        max-width: 240px !important;
+    }
+}
+
+/* Màn hình thấp */
+@media (max-height: 760px) and (min-width: 941px) {
+    .mf-login-showcase .natcare-login-brand,
+    .mf-login-showcase .natcare-login-logo-shell {
+        width: 225px !important;
+        min-width: 225px !important;
+        max-width: 225px !important;
+    }
+
+    .mf-login-showcase .natcare-login-logo-shell {
+        height: 90px !important;
+        min-height: 90px !important;
+        max-height: 90px !important;
+    }
+
+        .mf-login-showcase .natcare-login-brand > img,
+        .mf-login-showcase .natcare-login-logo-shell > img,
+        .mf-login-showcase .natcare-login-desktop-logo,
+        .mf-login-showcase .natcare-login-logo {
+            width: 215px !important;
+            min-width: 215px !important;
+            max-width: 215px !important;
+            height: 86px !important;
+            min-height: 86px !important;
+            max-height: 86px !important;
+        }
+
+    .mf-login-showcase .mf-login-introduction {
+        margin-top: 12px !important;
+    }
+}
+
+/* Điện thoại và tablet */
+@media (max-width: 940px) {
+    .mf-login-showcase {
+        display: none !important;
+    }
+
+    .mf-login-panel .mf-login-mobile-brand {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 100% !important;
+        margin: 0 0 18px !important;
+    }
+
+    .mf-login-panel .natcare-login-mobile-logo {
+        width: 215px !important;
+        max-width: 80% !important;
+        max-height: 90px !important;
+    }
+}
+
+@media (max-width: 540px) {
+    .mf-login-panel .natcare-login-mobile-logo {
+        width: 185px !important;
+        max-width: 80% !important;
+        max-height: 78px !important;
+    }
+}

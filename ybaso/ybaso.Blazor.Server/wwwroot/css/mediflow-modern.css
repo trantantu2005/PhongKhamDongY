@@ -1,0 +1,1929 @@
+﻿/* =========================================================
+   MEDIFLOW MODERN UI OVERRIDES
+   Loaded last from _Host.cshtml so the current Razor pages can
+   keep their existing class names while sharing one design system.
+   ========================================================= */
+
+:root {
+    --mf-blue: #0f766e;
+    --mf-blue-dark: #0b5f59;
+    --mf-primary: #0f766e;
+    --mf-primary-dark: #0b5f59;
+    --mf-primary-soft: #e6f7f4;
+    --mf-accent: #2563eb;
+    --mf-bg: #f4f7fa;
+    --mf-card: #ffffff;
+    --mf-border: #dce5ec;
+    --mf-border-strong: #cbd8e2;
+    --mf-text: #17212b;
+    --mf-muted: #64748b;
+    --mf-subtle: #8a9aab;
+    --mf-green: #15803d;
+    --mf-orange: #c2410c;
+    --mf-red: #c62828;
+    --mf-purple: #6d28d9;
+    --mf-radius-sm: 10px;
+    --mf-radius: 14px;
+    --mf-radius-lg: 18px;
+    --mf-shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.045);
+    --mf-shadow: 0 10px 28px rgba(15, 23, 42, 0.065);
+    --mf-shadow-hover: 0 16px 34px rgba(15, 23, 42, 0.10);
+    --mf-font: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+html {
+    min-width: 320px;
+    background: var(--mf-bg);
+    color-scheme: light;
+    font-size: 16px;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+}
+
+body {
+    margin: 0;
+    background: var(--mf-bg);
+    color: var(--mf-text);
+    font-family: var(--mf-font);
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.55;
+}
+
+button,
+input,
+select,
+textarea {
+    font-family: inherit;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+    -webkit-tap-highlight-color: transparent;
+}
+
+    button:focus-visible,
+    a:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible {
+        outline: 3px solid rgba(15, 118, 110, 0.18);
+        outline-offset: 2px;
+    }
+
+::selection {
+    background: rgba(15, 118, 110, 0.18);
+    color: #0f172a;
+}
+
+/* =========================================================
+   TYPOGRAPHY
+   ========================================================= */
+
+.doctor-page,
+.staff-page,
+.patient-page,
+.mf-page,
+.mf-login-page,
+.role-redirect-page,
+.mf-login-redirect,
+.route-loading-page,
+.route-access-denied {
+    font-family: var(--mf-font);
+}
+
+.doctor-page,
+.staff-page,
+.patient-page,
+.mf-page {
+    background: radial-gradient(circle at 100% 0, rgba(15, 118, 110, 0.045), transparent 28rem), var(--mf-bg);
+    color: var(--mf-text);
+}
+
+    .doctor-page h1,
+    .staff-page h1,
+    .patient-page h1,
+    .mf-page h1 {
+        color: #14202b;
+        font-size: clamp(24px, 2.2vw, 30px);
+        font-weight: 700;
+        letter-spacing: -0.025em;
+        line-height: 1.22;
+    }
+
+    .doctor-page h2,
+    .staff-page h2,
+    .patient-page h2,
+    .mf-page h2 {
+        color: #17212b;
+        font-weight: 650;
+        letter-spacing: -0.015em;
+        line-height: 1.3;
+    }
+
+    .doctor-page h3,
+    .staff-page h3,
+    .patient-page h3,
+    .mf-page h3 {
+        color: #1f2d3a;
+        font-weight: 600;
+        line-height: 1.35;
+    }
+
+    .doctor-page p,
+    .staff-page p,
+    .patient-page p,
+    .mf-page p {
+        font-weight: 400;
+    }
+
+    .doctor-page strong,
+    .staff-page strong,
+    .patient-page strong,
+    .mf-page strong {
+        font-weight: 600;
+    }
+
+/* =========================================================
+   APP SHELL + SIDEBARS
+   ========================================================= */
+
+.doctor-page,
+.staff-page,
+.patient-page,
+.mf-page {
+    align-items: stretch;
+    min-height: 100vh;
+}
+
+.doctor-sidebar,
+.staff-sidebar,
+.patient-sidebar,
+.mf-sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    width: 280px;
+    min-width: 280px;
+    height: 100vh;
+    min-height: 100vh;
+    flex-direction: column;
+    padding: 22px 16px 16px;
+    border-right: 1px solid var(--mf-border);
+    background: linear-gradient(180deg, rgba(230, 247, 244, 0.58) 0, rgba(255, 255, 255, 0) 150px), #ffffff;
+    box-shadow: 6px 0 24px rgba(15, 23, 42, 0.035);
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.doctor-brand,
+.staff-brand,
+.patient-brand,
+.mf-brand {
+    gap: 12px;
+    margin-bottom: 24px;
+    padding: 0 5px 17px;
+    border-bottom: 1px solid #edf2f6;
+}
+
+.doctor-brand-icon,
+.staff-brand-icon,
+.patient-brand-icon,
+.mf-brand-icon {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    place-items: center;
+    border-radius: 13px;
+    background: linear-gradient(135deg, #0f766e, #0d9488);
+    box-shadow: 0 9px 20px rgba(15, 118, 110, 0.22);
+    color: #ffffff;
+    font-size: 23px;
+    font-weight: 700;
+}
+
+.doctor-brand-title,
+.staff-brand-title,
+.patient-brand-title,
+.mf-brand-title {
+    color: #0f766e;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.doctor-brand-subtitle,
+.staff-brand-subtitle,
+.patient-brand-subtitle,
+.mf-brand-subtitle {
+    margin-top: 3px;
+    color: var(--mf-muted);
+    font-size: 11.5px;
+    font-weight: 400;
+}
+
+.doctor-menu,
+.staff-menu,
+.patient-menu {
+    flex: 1;
+    gap: 14px;
+    padding-right: 2px;
+}
+
+.doctor-menu-group,
+.staff-menu-group,
+.patient-menu-group {
+    gap: 4px;
+}
+
+.doctor-menu-group-title,
+.staff-menu-group-title,
+.patient-menu-group-title {
+    min-height: 30px;
+    padding: 0 11px;
+    border: 0;
+    background: transparent;
+    color: #7a8998;
+    font-size: 10.5px;
+    font-weight: 650;
+    letter-spacing: 0.075em;
+    text-transform: uppercase;
+    cursor: default;
+}
+
+.doctor-menu-item,
+.staff-menu-item,
+.patient-menu-item {
+    position: relative;
+    min-height: 43px;
+    gap: 11px;
+    padding: 0 13px;
+    border: 1px solid transparent;
+    border-radius: 11px;
+    background: transparent;
+    color: #455568;
+    font-size: 13.5px;
+    font-weight: 500;
+    line-height: 1.25;
+    transform: none;
+    transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+
+    .doctor-menu-item:hover,
+    .staff-menu-item:hover,
+    .patient-menu-item:hover {
+        border-color: #d7ebe8;
+        background: #f0faf8;
+        color: #0f766e;
+        transform: none;
+    }
+
+    .doctor-menu-item.active,
+    .staff-menu-item.active,
+    .patient-menu-item.active {
+        border-color: #bfe3de;
+        background: linear-gradient(90deg, #def4f0, #f1faf8);
+        box-shadow: inset 3px 0 0 #0f766e;
+        color: #0b625c;
+        font-weight: 650;
+    }
+
+.doctor-menu-icon,
+.staff-menu-icon,
+.patient-menu-icon {
+    width: 22px;
+    flex: 0 0 22px;
+    justify-content: center;
+    font-size: 15px;
+}
+
+.doctor-sidebar-footer,
+.staff-sidebar-footer,
+.patient-sidebar-footer {
+    margin-top: 15px;
+    padding: 15px 4px 0;
+    border-top: 1px solid var(--mf-border);
+}
+
+.doctor-user-box,
+.staff-user-box,
+.patient-user-box {
+    min-width: 0;
+    gap: 10px;
+    margin: 0 0 10px;
+    padding: 0;
+    border: 0;
+}
+
+.doctor-avatar,
+.staff-avatar,
+.patient-avatar {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    border-radius: 12px;
+    background: #e3f4f1;
+    color: #0f766e;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.doctor-user-info,
+.staff-user-content,
+.patient-user-content {
+    min-width: 0;
+    flex: 1;
+}
+
+.doctor-user-name,
+.staff-user-name,
+.patient-user-name {
+    overflow: hidden;
+    color: #243342;
+    font-size: 13px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.doctor-user-role,
+.staff-user-role,
+.patient-user-role {
+    margin-top: 2px;
+    color: var(--mf-muted);
+    font-size: 11px;
+    font-weight: 400;
+}
+
+.patient-privacy-box {
+    margin: 14px 0 0;
+    padding: 12px;
+    border-color: #cce8e4;
+    border-radius: 12px;
+    background: #f1faf8;
+}
+
+    .patient-privacy-box strong {
+        color: #0f625c;
+        font-weight: 600;
+    }
+
+/* =========================================================
+   MAIN CONTENT + PAGE TITLE BARS
+   ========================================================= */
+
+.doctor-main,
+.staff-main,
+.patient-main,
+.mf-main {
+    min-width: 0;
+    flex: 1;
+    padding: 28px clamp(22px, 3vw, 42px) 46px;
+    overflow-x: hidden;
+}
+
+.mf-topbar,
+.patient-home-header,
+.patient-profile-header,
+.patient-exam-header,
+.patient-prescription-header,
+.patient-exam-detail-header,
+.patient-prescription-detail-header,
+.patient-selfexam-header {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 20px;
+    padding: 20px 22px;
+    border: 1px solid var(--mf-border);
+    border-radius: var(--mf-radius-lg);
+    background: linear-gradient(110deg, rgba(230, 247, 244, 0.74), rgba(255, 255, 255, 0) 42%), #ffffff;
+    box-shadow: var(--mf-shadow-sm);
+}
+
+    .mf-topbar::before,
+    .patient-home-header::before,
+    .patient-profile-header::before,
+    .patient-exam-header::before,
+    .patient-prescription-header::before,
+    .patient-exam-detail-header::before,
+    .patient-prescription-detail-header::before,
+    .patient-selfexam-header::before {
+        position: absolute;
+        top: 17px;
+        bottom: 17px;
+        left: 0;
+        width: 4px;
+        border-radius: 0 5px 5px 0;
+        background: #0f766e;
+        content: "";
+    }
+
+    .mf-topbar h1,
+    .patient-home-header h1,
+    .patient-profile-header h1,
+    .patient-exam-header h1,
+    .patient-prescription-header h1,
+    .patient-selfexam-header h1 {
+        margin: 0;
+        font-size: clamp(23px, 2.1vw, 29px);
+        font-weight: 700;
+    }
+
+    .mf-topbar p,
+    .patient-home-header p,
+    .patient-profile-header p,
+    .patient-exam-header p,
+    .patient-prescription-header p,
+    .patient-selfexam-header p {
+        max-width: 760px;
+        margin: 6px 0 0;
+        color: var(--mf-muted);
+        font-size: 13.5px;
+        font-weight: 400;
+        line-height: 1.55;
+    }
+
+.patient-eyebrow,
+.mf-login-kicker {
+    color: #0f766e;
+    font-size: 10.5px;
+    font-weight: 650;
+    letter-spacing: 0.09em;
+}
+
+.mf-actions,
+.patient-header-actions,
+.patient-exam-detail-header-actions,
+.patient-selfexam-header-actions,
+.doctor-crud-actions,
+.doctor-row-actions,
+.staff-table-actions,
+.report-button-row,
+.patient-edit-actions,
+.patient-selfexam-form-actions,
+.patient-selfexam-bottom-actions,
+.patient-selfexam-result-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 9px;
+    flex-wrap: wrap;
+}
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
+.mf-btn,
+.patient-btn,
+.doctor-table-btn,
+.staff-table-btn,
+.patient-table-button,
+.patient-back-button,
+.patient-exam-detail-btn,
+.patient-prescription-exam-button,
+.report-apply,
+.medicine-add-button,
+.route-access-button,
+.mf-logout-button,
+.mf-logout-actions button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border-radius: 10px;
+    font-family: inherit;
+    font-weight: 600;
+    line-height: 1;
+    text-align: center;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.mf-btn,
+.patient-btn {
+    min-height: 42px;
+    padding: 0 16px;
+    font-size: 13.5px;
+}
+
+.mf-btn-primary,
+.patient-btn-primary,
+.staff-full-btn,
+.report-apply {
+    border: 1px solid #0f766e;
+    background: linear-gradient(135deg, #0f766e, #0d8a80);
+    box-shadow: 0 6px 14px rgba(15, 118, 110, 0.16);
+    color: #ffffff;
+}
+
+    .mf-btn-primary:hover,
+    .patient-btn-primary:hover,
+    .staff-full-btn:hover,
+    .report-apply:hover {
+        border-color: #0b5f59;
+        background: #0b5f59;
+        box-shadow: 0 8px 18px rgba(15, 118, 110, 0.22);
+        color: #ffffff;
+        transform: translateY(-1px);
+    }
+
+.mf-btn-outline,
+.patient-btn-outline {
+    border: 1px solid var(--mf-border-strong);
+    background: #ffffff;
+    color: #3d4e60;
+}
+
+    .mf-btn-outline:hover,
+    .patient-btn-outline:hover {
+        border-color: #95cfc8;
+        background: #f0faf8;
+        color: #0f766e;
+        transform: translateY(-1px);
+    }
+
+.doctor-table-btn,
+.staff-table-btn,
+.patient-table-button {
+    min-width: 74px;
+    min-height: 34px;
+    padding: 0 11px;
+    border: 1px solid #0f766e;
+    background: #0f766e;
+    color: #ffffff;
+    font-size: 12px;
+}
+
+    .doctor-table-btn:hover,
+    .staff-table-btn:hover,
+    .patient-table-button:hover {
+        border-color: #0b5f59;
+        background: #0b5f59;
+        color: #ffffff;
+    }
+
+    .doctor-table-btn.light,
+    .staff-table-btn.light {
+        margin-left: 0;
+        border-color: #b8ded9;
+        background: #edf9f7;
+        color: #0f6b64;
+    }
+
+        .doctor-table-btn.light:hover,
+        .staff-table-btn.light:hover {
+            border-color: #8bc9c2;
+            background: #dff4f1;
+        }
+
+    .doctor-table-btn.add,
+    .doctor-table-btn.edit {
+        border-color: #b8ded9;
+        background: #edf9f7;
+        color: #0f6b64;
+    }
+
+    .doctor-table-btn.danger,
+    .doctor-table-btn.delete,
+    .staff-table-btn.danger {
+        border-color: #fecaca;
+        background: #fff5f5;
+        color: #b42318;
+    }
+
+        .doctor-table-btn.danger:hover,
+        .doctor-table-btn.delete:hover,
+        .staff-table-btn.danger:hover {
+            border-color: #ef9a9a;
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+.patient-link-button {
+    color: #0f766e;
+    font-size: 12.5px;
+    font-weight: 600;
+}
+
+    .patient-link-button:hover {
+        color: #0b5f59;
+    }
+
+.mf-btn:disabled,
+.patient-btn:disabled,
+.doctor-table-btn:disabled,
+.staff-table-btn:disabled,
+.patient-table-button:disabled {
+    cursor: not-allowed;
+    box-shadow: none;
+    opacity: 0.58;
+    transform: none;
+}
+
+/* =========================================================
+   SEARCH + FILTER CONTROLS
+   ========================================================= */
+
+.mf-search,
+.patient-exam-search,
+.patient-prescription-search,
+.report-search,
+.medicine-herb-search {
+    min-height: 42px;
+    border: 1px solid var(--mf-border-strong);
+    border-radius: 11px;
+    background: #ffffff;
+    box-shadow: none;
+}
+
+.mf-search {
+    width: min(340px, 100%);
+    height: 42px;
+    padding: 0 13px;
+}
+
+    .mf-search:focus-within,
+    .patient-exam-search:focus-within,
+    .patient-prescription-search:focus-within,
+    .report-search:focus-within,
+    .medicine-herb-search:focus-within {
+        border-color: #62b6ad;
+        box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.11);
+    }
+
+    .mf-search input,
+    .patient-exam-search input,
+    .patient-prescription-search input,
+    .report-search input,
+    .medicine-herb-search input {
+        color: var(--mf-text);
+        font-size: 13.5px;
+        font-weight: 400;
+    }
+
+/* =========================================================
+   CARDS + STATISTICS
+   ========================================================= */
+
+.mf-card,
+.doctor-form-card,
+.staff-form-card,
+.doctor-workspace-card,
+.doctor-detail-page-card,
+.doctor-prescription-card,
+.patient-card,
+.patient-profile-card,
+.patient-history-card,
+.patient-exam-filter-card,
+.patient-exam-list-card,
+.patient-exam-detail-card,
+.patient-exam-content-card,
+.patient-exam-doctor-card,
+.patient-prescription-filter-card,
+.patient-prescription-list-card,
+.patient-prescription-info-card,
+.patient-prescription-medicine-card,
+.patient-prescription-text-card,
+.patient-selfexam-form-card,
+.patient-selfexam-patient-card,
+.patient-selfexam-result-card,
+.medicine-composition-card,
+.report-filter {
+    border: 1px solid var(--mf-border);
+    border-radius: var(--mf-radius-lg);
+    background: #ffffff;
+    box-shadow: var(--mf-shadow-sm);
+}
+
+.mf-card,
+.doctor-form-card,
+.staff-form-card,
+.doctor-workspace-card,
+.doctor-detail-page-card,
+.patient-card,
+.patient-profile-card,
+.patient-exam-filter-card,
+.patient-exam-list-card,
+.patient-prescription-filter-card,
+.patient-prescription-list-card,
+.patient-selfexam-form-card {
+    overflow: hidden;
+}
+
+.mf-card-head,
+.patient-card-header,
+.doctor-form-header,
+.staff-form-header,
+.doctor-crud-header,
+.doctor-detail-page-head,
+.doctor-section-head,
+.staff-section-head-simple,
+.medicine-section-head,
+.patient-selfexam-section-head,
+.patient-selfexam-result-head,
+.patient-exam-filter-head,
+.patient-prescription-filter-head {
+    min-height: 68px;
+    padding: 17px 20px;
+    border-bottom: 1px solid var(--mf-border);
+    background: linear-gradient(180deg, #ffffff, #fbfcfd);
+}
+
+    .mf-card-head h2,
+    .patient-card-header h2,
+    .doctor-form-header h2,
+    .staff-form-header h2,
+    .doctor-crud-header h2,
+    .doctor-detail-page-head h2,
+    .doctor-section-head h2,
+    .staff-section-head-simple h2,
+    .medicine-section-head h2,
+    .patient-selfexam-section-head h2,
+    .patient-selfexam-result-head h2 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 650;
+    }
+
+    .mf-card-head p,
+    .patient-card-header p,
+    .doctor-form-header p,
+    .staff-form-header p,
+    .doctor-crud-header p,
+    .doctor-detail-page-head p {
+        margin: 4px 0 0;
+        color: var(--mf-muted);
+        font-size: 12.5px;
+        font-weight: 400;
+    }
+
+.doctor-stats,
+.staff-stats,
+.patient-stats,
+.staff-quick-grid,
+.patient-quick-actions,
+.report-metrics {
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.doctor-stat-card,
+.staff-stat-card,
+.patient-stat-card,
+.staff-quick-card,
+.patient-quick-card,
+.report-metric {
+    min-width: 0;
+    min-height: 108px;
+    padding: 17px;
+    border: 1px solid var(--mf-border);
+    border-radius: 15px;
+    background: #ffffff;
+    box-shadow: var(--mf-shadow-sm);
+    transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+    .doctor-stat-card:hover,
+    .staff-stat-card:hover,
+    .patient-stat-card:hover,
+    .staff-quick-card:hover,
+    .patient-quick-card:hover,
+    .report-metric:hover {
+        border-color: #bfd8d5;
+        box-shadow: var(--mf-shadow);
+        transform: translateY(-2px);
+    }
+
+.doctor-stat-icon,
+.staff-stat-icon,
+.patient-stat-icon,
+.staff-quick-icon,
+.patient-quick-icon,
+.report-metric-icon {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    border-radius: 12px;
+    font-size: 18px;
+}
+
+.doctor-stat-card p,
+.staff-stat-card p,
+.patient-stat-card span,
+.report-metric span {
+    color: var(--mf-muted);
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.doctor-stat-card h3,
+.staff-stat-card h3,
+.patient-stat-card strong,
+.report-metric strong {
+    margin-top: 3px;
+    color: #14202b;
+    font-size: 23px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.staff-quick-card h3,
+.patient-quick-card h3 {
+    font-size: 15.5px;
+    font-weight: 600;
+}
+
+.staff-quick-card p,
+.patient-quick-card p {
+    font-size: 12.5px;
+    font-weight: 400;
+}
+
+.patient-welcome-card {
+    border-color: #c6e5e1;
+    border-radius: var(--mf-radius-lg);
+    background: linear-gradient(115deg, #eaf8f6, #f4fbfa 48%, #ffffff);
+    box-shadow: var(--mf-shadow-sm);
+}
+
+.patient-welcome-content span,
+.patient-security-label strong {
+    color: #0f766e;
+    font-weight: 600;
+}
+
+/* =========================================================
+   TABLES
+   ========================================================= */
+
+.mf-table-wrapper,
+.doctor-table-scroll,
+.staff-table-wrapper,
+.patient-table-wrapper,
+.report-table-wrap,
+.medicine-table-wrapper,
+.patient-prescription-table-wrapper,
+.patient-selfexam-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #b8c8d5 transparent;
+}
+
+.mf-table,
+.patient-table,
+.report-wide-table,
+.medicine-ingredient-table,
+.patient-prescription-detail-table,
+.patient-selfexam-result-table,
+.patient-selfexam-wide-table,
+.patient-selfexam-measure-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+    .mf-table th,
+    .patient-table th,
+    .report-wide-table th,
+    .medicine-ingredient-table th,
+    .patient-prescription-detail-table th,
+    .patient-selfexam-result-table th,
+    .patient-selfexam-wide-table th,
+    .patient-selfexam-measure-table th {
+        padding: 12px 15px;
+        border-bottom: 1px solid var(--mf-border-strong);
+        background: #f5f8fa;
+        color: #516173;
+        font-size: 11.5px;
+        font-weight: 650;
+        letter-spacing: 0.02em;
+        text-align: left;
+        text-transform: none;
+        white-space: nowrap;
+    }
+
+    .mf-table td,
+    .patient-table td,
+    .report-wide-table td,
+    .medicine-ingredient-table td,
+    .patient-prescription-detail-table td,
+    .patient-selfexam-result-table td,
+    .patient-selfexam-wide-table td,
+    .patient-selfexam-measure-table td {
+        padding: 13px 15px;
+        border-bottom: 1px solid #e8eef3;
+        color: #344454;
+        font-size: 13px;
+        font-weight: 400;
+        line-height: 1.45;
+        vertical-align: middle;
+    }
+
+    .mf-table tbody tr,
+    .patient-table tbody tr,
+    .report-wide-table tbody tr,
+    .medicine-ingredient-table tbody tr {
+        transition: background-color 0.14s ease;
+    }
+
+        .mf-table tbody tr:hover,
+        .patient-table tbody tr:hover,
+        .report-wide-table tbody tr:hover,
+        .medicine-ingredient-table tbody tr:hover {
+            background: #f4faf9;
+        }
+
+        .mf-table tbody tr:last-child td,
+        .patient-table tbody tr:last-child td,
+        .report-wide-table tbody tr:last-child td,
+        .medicine-ingredient-table tbody tr:last-child td {
+            border-bottom: 0;
+        }
+
+    .mf-table td:last-child,
+    .patient-table td:last-child {
+        white-space: nowrap;
+    }
+
+    .doctor-cell-main strong,
+    .staff-cell-main strong,
+    .patient-table td strong {
+        color: #243342;
+        font-weight: 600;
+    }
+
+    .doctor-cell-main small,
+    .staff-cell-main small,
+    .patient-table td small {
+        color: var(--mf-muted);
+        font-weight: 400;
+    }
+
+.doctor-circle,
+.staff-circle {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    border-radius: 10px;
+    background: #e7f5f3;
+    color: #0f766e;
+    font-weight: 650;
+}
+
+/* =========================================================
+   FORMS
+   ========================================================= */
+
+.doctor-form-grid,
+.staff-form-grid,
+.doctor-crud-grid,
+.patient-profile-grid,
+.patient-edit-actions,
+.patient-exam-filter-grid,
+.patient-prescription-filter-grid,
+.patient-selfexam-create-grid,
+.patient-selfexam-diagnosis-grid,
+.patient-selfexam-measure-grid,
+.report-filter-grid {
+    gap: 16px 18px;
+}
+
+.doctor-form-group,
+.staff-form-group,
+.patient-edit-group,
+.patient-filter-group,
+.patient-selfexam-field,
+.prescription-field,
+.staff-filter-group {
+    min-width: 0;
+}
+
+    .doctor-form-group label,
+    .staff-form-group label,
+    .patient-edit-group label,
+    .patient-filter-group label,
+    .patient-selfexam-field label,
+    .prescription-field label,
+    .staff-filter-group label {
+        display: block;
+        margin-bottom: 7px;
+        color: #344454;
+        font-size: 12.5px;
+        font-weight: 600;
+        line-height: 1.35;
+    }
+
+.doctor-form-control,
+.staff-form-control,
+.patient-edit-control,
+.patient-filter-control,
+.patient-selfexam-measure-input,
+.patient-selfexam-multiline,
+.doctor-measure-input,
+.medicine-quantity-input,
+.medicine-note-input,
+.report-filter select,
+.report-filter textarea {
+    width: 100%;
+    min-height: 44px;
+    padding: 9px 12px;
+    border: 1px solid var(--mf-border-strong);
+    border-radius: 10px;
+    background: #ffffff;
+    color: #22313f;
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 400;
+    line-height: 1.4;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
+}
+
+textarea.doctor-form-control,
+textarea.staff-form-control,
+textarea.patient-edit-control,
+.patient-selfexam-multiline,
+.medicine-note-input {
+    min-height: 104px;
+    resize: vertical;
+}
+
+    .doctor-form-control:focus,
+    .staff-form-control:focus,
+    .patient-edit-control:focus,
+    .patient-filter-control:focus,
+    .patient-selfexam-measure-input:focus,
+    .patient-selfexam-multiline:focus,
+    .doctor-measure-input:focus,
+    .medicine-quantity-input:focus,
+    .medicine-note-input:focus,
+    .report-filter select:focus,
+    .report-filter textarea:focus {
+        border-color: #62b6ad;
+        box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.11);
+        outline: none;
+    }
+
+.doctor-form-control:disabled,
+.staff-form-control:disabled,
+.patient-edit-control:disabled,
+.patient-filter-control:disabled {
+    border-color: #e1e8ee;
+    background: #f5f7f9;
+    color: #7a8998;
+    cursor: not-allowed;
+}
+
+.doctor-form-footer,
+.staff-form-footer {
+    display: flex;
+    min-height: 72px;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 9px;
+    padding: 14px 20px;
+    border-top: 1px solid var(--mf-border);
+    background: #fbfcfd;
+    flex-wrap: wrap;
+}
+
+.doctor-form-avatar,
+.staff-form-avatar,
+.patient-section-icon,
+.patient-detail-row-icon,
+.patient-contact-icon,
+.patient-exam-overview-icon,
+.patient-prescription-overview-icon {
+    border-radius: 11px;
+    background: #e7f5f3;
+    color: #0f766e;
+}
+
+.required,
+.patient-required {
+    color: #c62828;
+    font-weight: 600;
+}
+
+.doctor-text-block,
+.staff-text-block,
+.patient-detail-item,
+.staff-info-box,
+.doctor-diagnosis-card,
+.doctor-measure-panel,
+.patient-selfexam-measure-panel {
+    border: 1px solid var(--mf-border);
+    border-radius: 12px;
+    background: #fbfcfd;
+}
+
+/* =========================================================
+   BADGES + ALERTS + EMPTY STATES
+   ========================================================= */
+
+.doctor-status,
+.staff-status,
+.patient-status,
+.doctor-pill,
+.patient-private-badge,
+.staff-account-status,
+.measure-badge {
+    display: inline-flex;
+    min-height: 25px;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.mf-alert,
+.patient-action-message,
+.report-alert-item,
+.patient-prescription-notice,
+.patient-selfexam-warning,
+.patient-selfexam-disclaimer {
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.5;
+}
+
+.mf-empty,
+.patient-empty-state,
+.patient-empty-history,
+.patient-exam-content-empty,
+.patient-prescription-empty-content,
+.medicine-empty-ingredients,
+.patient-selfexam-result-empty {
+    padding: 30px 22px;
+    color: var(--mf-muted);
+    font-weight: 400;
+    text-align: center;
+}
+
+/* =========================================================
+   PATIENT DETAIL LISTS
+   ========================================================= */
+
+.patient-detail-grid,
+.patient-exam-detail-grid,
+.patient-prescription-detail-grid,
+.patient-exam-detail-overview,
+.patient-prescription-detail-overview,
+.patient-prescription-overview-item,
+.patient-exam-overview-item {
+    gap: 15px;
+}
+
+.patient-detail-row,
+.patient-contact-list,
+.patient-exam-overview-item,
+.patient-prescription-overview-item,
+.patient-prescription-linked-exam,
+.patient-exam-doctor,
+.staff-account-summary {
+    border-radius: 12px;
+}
+
+    .patient-detail-row strong,
+    .patient-contact-list strong,
+    .patient-exam-overview-item strong,
+    .patient-prescription-overview-item strong {
+        font-weight: 600;
+    }
+
+    .patient-detail-row span,
+    .patient-contact-list small,
+    .patient-exam-overview-item span,
+    .patient-prescription-overview-item span {
+        font-weight: 400;
+    }
+
+/* =========================================================
+   LOGIN + REDIRECT + LOGOUT
+   ========================================================= */
+
+.mf-login-page {
+    --login-primary: #0f766e;
+    --login-primary-dark: #0b5f59;
+    --login-primary-soft: #def4f0;
+    font-family: var(--mf-font);
+}
+
+.mf-login-showcase {
+    background: radial-gradient(circle at 13% 16%, rgba(94, 234, 212, 0.22), transparent 31%), radial-gradient(circle at 88% 84%, rgba(59, 130, 246, 0.16), transparent 34%), linear-gradient(145deg, #073f3b 0%, #0b665f 48%, #0f766e 100%);
+}
+
+.mf-login-brand-name,
+.mf-login-introduction h1,
+.mf-login-card-heading h2 {
+    font-weight: 700;
+}
+
+.mf-login-feature strong,
+.mf-login-role-list span,
+.mf-login-form-host label,
+.mf-login-support span {
+    font-weight: 600;
+}
+
+.mf-login-card {
+    border-color: var(--mf-border);
+    border-radius: 20px;
+    box-shadow: 0 22px 56px rgba(15, 23, 42, 0.11);
+}
+
+.mf-login-form-host input,
+.mf-login-form-host .form-control,
+.mf-login-form-host .dxbl-text-edit-input {
+    min-height: 46px;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.mf-login-form-host button,
+.mf-login-form-host .btn {
+    min-height: 44px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+.role-redirect-card,
+.mf-logout-dialog,
+.route-access-denied {
+    border: 1px solid var(--mf-border);
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: var(--mf-shadow);
+}
+
+.mf-logout-button {
+    min-height: 40px;
+    justify-content: flex-start;
+    padding: 0 11px;
+    border: 1px solid transparent;
+    color: #667788;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+    .mf-logout-button:hover {
+        border-color: #f4c7c7;
+        background: #fff4f4;
+        color: #b42318;
+    }
+
+.mf-logout-dialog h3 {
+    font-weight: 650;
+}
+
+.mf-logout-actions button {
+    min-height: 41px;
+    font-weight: 600;
+}
+
+/* =========================================================
+   DEVEXPRESS / XAF LIGHT TOUCH
+   ========================================================= */
+
+.dxbl-btn,
+.btn {
+    border-radius: 10px;
+    font-family: var(--mf-font);
+    font-weight: 600;
+}
+
+.dxbl-text-edit,
+.dxbl-combobox,
+.form-control {
+    border-radius: 10px;
+    font-family: var(--mf-font);
+}
+
+.dxbl-grid {
+    overflow: hidden;
+    border-color: var(--mf-border);
+    border-radius: 14px;
+}
+
+/* =========================================================
+   SCROLLBARS
+   ========================================================= */
+
+.doctor-sidebar,
+.staff-sidebar,
+.patient-sidebar,
+.mf-table-wrapper,
+.doctor-table-scroll,
+.staff-table-wrapper,
+.patient-table-wrapper,
+.report-table-wrap {
+    scrollbar-width: thin;
+    scrollbar-color: #bac8d2 transparent;
+}
+
+    .doctor-sidebar::-webkit-scrollbar,
+    .staff-sidebar::-webkit-scrollbar,
+    .patient-sidebar::-webkit-scrollbar,
+    .mf-table-wrapper::-webkit-scrollbar,
+    .doctor-table-scroll::-webkit-scrollbar,
+    .staff-table-wrapper::-webkit-scrollbar,
+    .patient-table-wrapper::-webkit-scrollbar,
+    .report-table-wrap::-webkit-scrollbar {
+        width: 7px;
+        height: 7px;
+    }
+
+    .doctor-sidebar::-webkit-scrollbar-thumb,
+    .staff-sidebar::-webkit-scrollbar-thumb,
+    .patient-sidebar::-webkit-scrollbar-thumb,
+    .mf-table-wrapper::-webkit-scrollbar-thumb,
+    .doctor-table-scroll::-webkit-scrollbar-thumb,
+    .staff-table-wrapper::-webkit-scrollbar-thumb,
+    .patient-table-wrapper::-webkit-scrollbar-thumb,
+    .report-table-wrap::-webkit-scrollbar-thumb {
+        border-radius: 999px;
+        background: #bac8d2;
+    }
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1250px) {
+    .doctor-sidebar,
+    .staff-sidebar,
+    .patient-sidebar,
+    .mf-sidebar {
+        width: 252px;
+        min-width: 252px;
+    }
+
+    .doctor-main,
+    .staff-main,
+    .patient-main,
+    .mf-main {
+        padding-right: 24px;
+        padding-left: 24px;
+    }
+
+    .doctor-stats,
+    .staff-stats,
+    .patient-stats,
+    .report-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 900px) {
+    .doctor-page,
+    .staff-page,
+    .patient-page,
+    .mf-page {
+        flex-direction: column;
+    }
+
+    .doctor-sidebar,
+    .staff-sidebar,
+    .patient-sidebar,
+    .mf-sidebar {
+        position: relative;
+        width: 100%;
+        min-width: 100%;
+        height: auto;
+        min-height: 0;
+        padding: 16px;
+        border-right: 0;
+        border-bottom: 1px solid var(--mf-border);
+        box-shadow: 0 5px 18px rgba(15, 23, 42, 0.04);
+    }
+
+    .doctor-brand,
+    .staff-brand,
+    .patient-brand,
+    .mf-brand {
+        margin-bottom: 12px;
+        padding-bottom: 12px;
+    }
+
+    .doctor-menu,
+    .staff-menu,
+    .patient-menu {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .doctor-menu-group,
+    .staff-menu-group,
+    .patient-menu-group {
+        min-width: 0;
+    }
+
+    .doctor-sidebar-footer,
+    .staff-sidebar-footer,
+    .patient-sidebar-footer,
+    .patient-privacy-box {
+        display: none;
+    }
+
+    .doctor-main,
+    .staff-main,
+    .patient-main,
+    .mf-main {
+        padding: 20px 16px 36px;
+    }
+
+    .mf-topbar,
+    .patient-home-header,
+    .patient-profile-header,
+    .patient-exam-header,
+    .patient-prescription-header,
+    .patient-exam-detail-header,
+    .patient-prescription-detail-header,
+    .patient-selfexam-header {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 18px;
+    }
+
+    .mf-actions,
+    .patient-header-actions,
+    .patient-exam-detail-header-actions,
+    .patient-selfexam-header-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .mf-search {
+        width: 100%;
+    }
+
+    .doctor-form-grid,
+    .staff-form-grid,
+    .doctor-crud-grid,
+    .patient-profile-grid,
+    .patient-exam-filter-grid,
+    .patient-prescription-filter-grid,
+    .patient-selfexam-create-grid,
+    .patient-selfexam-diagnosis-grid,
+    .report-filter-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .doctor-menu,
+    .staff-menu,
+    .patient-menu {
+        grid-template-columns: 1fr;
+    }
+
+    .doctor-stats,
+    .staff-stats,
+    .patient-stats,
+    .staff-quick-grid,
+    .patient-quick-actions,
+    .report-metrics {
+        grid-template-columns: 1fr;
+    }
+
+    .mf-actions > *,
+    .patient-header-actions > *,
+    .patient-edit-actions > *,
+    .doctor-form-footer > *,
+    .staff-form-footer > * {
+        width: 100%;
+    }
+
+    .doctor-form-footer,
+    .staff-form-footer {
+        align-items: stretch;
+        flex-direction: column-reverse;
+    }
+
+    .mf-card-head,
+    .patient-card-header,
+    .doctor-form-header,
+    .staff-form-header,
+    .doctor-crud-header,
+    .doctor-detail-page-head {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .mf-table th,
+    .patient-table th,
+    .report-wide-table th,
+    .mf-table td,
+    .patient-table td,
+    .report-wide-table td {
+        padding-right: 12px;
+        padding-left: 12px;
+    }
+}
+
+@media print {
+    .doctor-sidebar,
+    .staff-sidebar,
+    .patient-sidebar,
+    .mf-sidebar,
+    .mf-topbar,
+    .no-print {
+        display: none !important;
+    }
+
+    .doctor-main,
+    .staff-main,
+    .patient-main,
+    .mf-main {
+        padding: 0 !important;
+    }
+
+    .mf-card,
+    .doctor-form-card,
+    .staff-form-card,
+    .patient-card,
+    .report-filter {
+        box-shadow: none !important;
+    }
+}
+
+/* =========================================================
+   FIX SIDEBAR DOCTOR VÀ CỘT THAO TÁC ĐIỀU KIỆN CHẨN ĐOÁN
+   ========================================================= */
+
+/* Bỏ hoàn toàn gạch chân ở menu sidebar bác sĩ */
+.doctor-sidebar .doctor-menu-item,
+.doctor-sidebar .doctor-menu-item:link,
+.doctor-sidebar .doctor-menu-item:visited,
+.doctor-sidebar .doctor-menu-item:hover,
+.doctor-sidebar .doctor-menu-item:focus,
+.doctor-sidebar .doctor-menu-item:active,
+.doctor-sidebar .doctor-menu-item span {
+    text-decoration: none !important;
+}
+
+    /* Giữ hiệu ứng focus nhưng không tạo gạch chân */
+    .doctor-sidebar .doctor-menu-item:focus {
+        text-decoration: none !important;
+    }
+
+    .doctor-sidebar .doctor-menu-item:focus-visible {
+        outline: 2px solid rgba(15, 118, 110, 0.28);
+        outline-offset: 2px;
+    }
+
+    /* Bỏ gạch chân ở trạng thái đang được chọn */
+    .doctor-sidebar .doctor-menu-item.active,
+    .doctor-sidebar .doctor-menu-item.active:hover,
+    .doctor-sidebar .doctor-menu-item.active:focus,
+    .doctor-sidebar .doctor-menu-item.active span {
+        text-decoration: none !important;
+    }
+
+/* Cố định chiều rộng cột thao tác */
+.doctor-diagnosis-table th:last-child,
+.doctor-diagnosis-table td:last-child {
+    width: 236px;
+    min-width: 236px !important;
+    text-align: center;
+    vertical-align: middle;
+}
+
+/* Đặt 3 nút Thêm, Sửa, Xóa cùng một hàng */
+.doctor-diagnosis-table .doctor-row-actions {
+    display: grid !important;
+    grid-template-columns: repeat(3, 64px);
+    align-items: center;
+    justify-content: center !important;
+    gap: 8px;
+    min-width: 208px;
+    flex-wrap: nowrap !important;
+    white-space: nowrap;
+}
+
+    /* Cho 3 nút có cùng kích thước */
+    .doctor-diagnosis-table .doctor-row-actions .doctor-table-btn {
+        width: 64px;
+        min-width: 64px !important;
+        height: 36px;
+        min-height: 36px;
+        margin: 0 !important;
+        padding: 0 8px !important;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 9px;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1;
+        white-space: nowrap;
+    }
+
+/* Màu nút Thêm */
+.doctor-diagnosis-table .doctor-table-btn.add {
+    border: 1px solid #a8ddd6;
+    background: #eaf8f6;
+    color: #08736a;
+}
+
+/* Màu nút Sửa */
+.doctor-diagnosis-table .doctor-table-btn.edit {
+    border: 1px solid #a8ddd6;
+    background: #f0faf8;
+    color: #08736a;
+}
+
+/* Màu nút Xóa */
+.doctor-diagnosis-table .doctor-table-btn.delete {
+    border: 1px solid #fecaca;
+    background: #fff5f5;
+    color: #c62828;
+}
+
+/* Hiệu ứng rê chuột */
+.doctor-diagnosis-table .doctor-table-btn.add:hover,
+.doctor-diagnosis-table .doctor-table-btn.edit:hover {
+    border-color: #72c7bd;
+    background: #dff4f1;
+    color: #075f58;
+    transform: translateY(-1px);
+}
+
+.doctor-diagnosis-table .doctor-table-btn.delete:hover {
+    border-color: #f59b9b;
+    background: #fee2e2;
+    color: #991b1b;
+    transform: translateY(-1px);
+}
+
+/* Màn hình nhỏ vẫn giữ các nút cân đối */
+@media (max-width: 900px) {
+    .doctor-diagnosis-table th:last-child,
+    .doctor-diagnosis-table td:last-child {
+        width: 220px;
+        min-width: 220px !important;
+    }
+
+    .doctor-diagnosis-table .doctor-row-actions {
+        grid-template-columns: repeat(3, 60px);
+        gap: 6px;
+        min-width: 192px;
+    }
+
+        .doctor-diagnosis-table .doctor-row-actions .doctor-table-btn {
+            width: 60px;
+            min-width: 60px !important;
+        }
+}
+
+/* =========================================================
+   CĂN THẲNG CỘT THAO TÁC CHO TẤT CẢ BẢNG CỦA BÁC SĨ
+   Áp dụng: Bệnh danh, Huyệt, Điều kiện, Phác đồ điều trị
+   ========================================================= */
+
+/* Cố định độ rộng cột Thao tác */
+.doctor-page .mf-table th:last-child,
+.doctor-page .mf-table td:last-child {
+    width: 210px !important;
+    min-width: 210px !important;
+    max-width: 210px !important;
+    text-align: center !important;
+    vertical-align: middle !important;
+    white-space: nowrap !important;
+}
+
+/* Luôn hiển thị Thêm - Sửa - Xóa trên cùng một hàng */
+.doctor-page .mf-table .doctor-row-actions {
+    width: 100% !important;
+    min-width: 0 !important;
+    display: grid !important;
+    grid-template-columns: repeat(3, 58px) !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 7px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    flex-wrap: nowrap !important;
+    white-space: nowrap !important;
+}
+
+    /* Ba nút có kích thước hoàn toàn giống nhau */
+    .doctor-page .mf-table .doctor-row-actions .doctor-table-btn {
+        width: 58px !important;
+        min-width: 58px !important;
+        max-width: 58px !important;
+        height: 36px !important;
+        min-height: 36px !important;
+        margin: 0 !important;
+        padding: 0 6px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border-radius: 9px !important;
+        font-size: 12px !important;
+        font-weight: 600 !important;
+        line-height: 1 !important;
+        white-space: nowrap !important;
+        text-align: center !important;
+    }
+
+/* Nút Thêm và Sửa */
+.doctor-page .mf-table .doctor-table-btn.add,
+.doctor-page .mf-table .doctor-table-btn.edit {
+    border: 1px solid #a8ddd6 !important;
+    background: #edf9f7 !important;
+    color: #08736a !important;
+}
+
+/* Nút Xóa */
+.doctor-page .mf-table .doctor-table-btn.delete {
+    border: 1px solid #fecaca !important;
+    background: #fff5f5 !important;
+    color: #c62828 !important;
+}
+
+/* Hiệu ứng khi rê chuột */
+.doctor-page .mf-table .doctor-table-btn.add:hover,
+.doctor-page .mf-table .doctor-table-btn.edit:hover {
+    border-color: #72c7bd !important;
+    background: #dff4f1 !important;
+    color: #075f58 !important;
+    transform: translateY(-1px);
+}
+
+.doctor-page .mf-table .doctor-table-btn.delete:hover {
+    border-color: #f59b9b !important;
+    background: #fee2e2 !important;
+    color: #991b1b !important;
+    transform: translateY(-1px);
+}
+
+/* Không cho CSS responsive cũ làm các nút xuống hàng */
+@media (max-width: 900px) {
+    .doctor-page .mf-table .doctor-row-actions {
+        display: grid !important;
+        grid-template-columns: repeat(3, 58px) !important;
+        flex-wrap: nowrap !important;
+    }
+
+    .doctor-page .mf-table th:last-child,
+    .doctor-page .mf-table td:last-child {
+        width: 210px !important;
+        min-width: 210px !important;
+        max-width: 210px !important;
+    }
+}
+
+/* =========================================================
+   LOGO NATCARE TRÊN SIDEBAR
+   ========================================================= */
+
+.doctor-brand.natcare-sidebar-brand,
+.staff-brand.natcare-sidebar-brand,
+.patient-brand.natcare-sidebar-brand {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100%;
+    gap: 5px !important;
+    margin-bottom: 20px !important;
+    padding: 0 4px 16px !important;
+    border-bottom: 1px solid #edf2f6;
+}
+
+/* Ảnh logo NATCare */
+.natcare-sidebar-logo {
+    display: block;
+    width: 210px;
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+    user-select: none;
+}
+
+/* Dòng Doctor Workspace, Staff Workspace... */
+.natcare-workspace-label {
+    width: 100%;
+    margin-top: 1px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: 0.05em;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+/* Màn hình nhỏ */
+@media (max-width: 900px) {
+    .natcare-sidebar-logo {
+        width: 190px;
+    }
+}
+
+/* =========================================================
+   FIX STAFF SIDEBAR - GIỮ SIDEBAR CỐ ĐỊNH KHI CUỘN TRANG
+   ========================================================= */
+
+@media (min-width: 901px) {
+    /*
+       Chừa khoảng trống bên trái bằng đúng chiều rộng sidebar.
+       Sidebar dùng fixed nên không còn chiếm chỗ trong flex layout.
+    */
+    .staff-page {
+        padding-left: 280px !important;
+        min-height: 100vh !important;
+        min-height: 100dvh !important;
+    }
+
+    /*
+       Sidebar luôn phủ đầy chiều cao màn hình và không bị cuộn
+       theo phần nội dung bên phải.
+    */
+    .staff-sidebar {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: auto !important;
+        width: 280px !important;
+        min-width: 280px !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+        min-height: 0 !important;
+        max-height: 100dvh !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+        z-index: 1000 !important;
+    }
+
+    /*
+       Chỉ danh sách menu được cuộn khi màn hình thấp.
+       Logo và khu vực tài khoản không bị cuộn mất.
+    */
+    .staff-menu {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        padding-right: 4px;
+        overscroll-behavior: contain;
+    }
+
+    /*
+       Thông tin nhân viên và nút đăng xuất luôn nằm cuối sidebar.
+    */
+    .staff-sidebar-footer {
+        flex: 0 0 auto !important;
+        margin-top: 12px !important;
+        background: #ffffff;
+        position: relative;
+        z-index: 2;
+    }
+
+    /*
+       Nội dung bên phải cuộn theo toàn bộ trang,
+       không tạo thêm một vùng cuộn riêng.
+    */
+    .staff-main {
+        min-width: 0 !important;
+        min-height: 100vh !important;
+        min-height: 100dvh !important;
+        overflow-y: visible !important;
+    }
+}
+
+/*
+   Dự án đang thu nhỏ sidebar xuống 252px khi màn hình
+   có chiều rộng từ 901px đến 1250px.
+*/
+@media (min-width: 901px) and (max-width: 1250px) {
+    .staff-page {
+        padding-left: 252px !important;
+    }
+
+    .staff-sidebar {
+        width: 252px !important;
+        min-width: 252px !important;
+    }
+}

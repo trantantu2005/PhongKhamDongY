@@ -1,0 +1,1879 @@
+﻿@page "/patient/exams/new"
+@page "/patient/exams/self/{Oid:int}"
+
+@using System.Linq
+@using DevExpress.ExpressApp
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components
+@using ybaso.Blazor.Server.Services
+@using ybaso.Module.BusinessObjects
+@implements IDisposable
+
+@attribute [Authorize(Roles = "BenhNhan")]
+
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject CurrentPatientService CurrentPatientService
+@inject PatientSelfExamService PatientSelfExamService
+@inject NavigationManager Navigation
+
+<PageTitle>Ca khám của tôi</PageTitle>
+
+<div class="patient-page">
+    <PatientSidebar ActiveMenu="exam-create"
+                    DisplayName="@SidebarName" />
+
+    <main class="patient-main">
+
+        @if (IsLoading)
+        {
+            <section class="patient-loading">
+                <div class="patient-loading-spinner"></div>
+
+                <strong>Đang chuẩn bị ca khám...</strong>
+
+                <span>
+                    Hệ thống đang xác định hồ sơ bệnh nhân
+                    thuộc tài khoản hiện tại.
+                </span>
+            </section>
+        }
+        else if (!string.IsNullOrWhiteSpace(ErrorMessage))
+        {
+            <section class="patient-message-card error">
+                <div class="patient-message-icon">
+                    ⚠️
+                </div>
+
+                <div>
+                    <h2>Không thể tải ca khám</h2>
+
+                    <p>@ErrorMessage</p>
+
+                    <div class="patient-selfexam-error-actions">
+                        <button class="patient-btn patient-btn-outline"
+                                type="button"
+                                @onclick="GoHome">
+                            Về trang chủ
+                        </button>
+
+                        <button class="patient-btn patient-btn-primary"
+                                type="button"
+                                @onclick="ReloadPage">
+                            Thử lại
+                        </button>
+                    </div>
+                </div>
+            </section>
+        }
+        else if (CurrentPatient == null)
+        {
+            <section class="patient-message-card warning">
+                <div class="patient-message-icon">
+                    🔗
+                </div>
+
+                <div>
+                    <h2>Tài khoản chưa liên kết hồ sơ</h2>
+
+                    <p>
+                        Tài khoản <strong>@CurrentUserName</strong>
+                        chưa được liên kết với hồ sơ bệnh nhân.
+                    </p>
+
+                    <p>
+                        Bạn chỉ có thể tạo ca khám cho hồ sơ
+                        được liên kết với chính tài khoản của mình.
+                    </p>
+
+                    <button class="patient-btn patient-btn-outline"
+                            type="button"
+                            @onclick="GoHome">
+                        Quay lại trang chủ
+                    </button>
+                </div>
+            </section>
+        }
+        else if (Oid <= 0)
+        {
+            <!-- =====================================================
+                 BƯỚC 1: TẠO CA KHÁM
+                 ===================================================== -->
+
+            <header class="patient-selfexam-header">
+                <div>
+                    <span class="patient-eyebrow">
+                        Khám bệnh
+                    </span>
+
+                    <h1>Tạo ca khám mới</h1>
+
+                    <p>
+                        Nhập thông tin cơ bản trước khi tiến hành
+                        đo 12 tinh huyệt.
+                    </p>
+                </div>
+
+                <div class="patient-header-actions">
+                    <button class="patient-btn patient-btn-outline"
+                            type="button"
+                            disabled="@IsProcessing"
+                            @onclick="GoExamHistory">
+                        Lịch sử khám
+                    </button>
+
+                    <button class="patient-btn patient-btn-primary"
+                            type="button"
+                            disabled="@IsProcessing"
+                            @onclick="CreateExam">
+                        @(IsProcessing
+                            ? "Đang tạo..."
+                            : "Tiếp tục nhập số đo →")
+                    </button>
+                </div>
+            </header>
+
+            <section class="patient-selfexam-warning">
+                <div class="patient-selfexam-warning-icon">
+                    ⚕️
+                </div>
+
+                <div>
+                    <strong>Kết quả chỉ mang tính tham khảo</strong>
+
+                    <p>
+                        Chẩn đoán và pháp trị tự động phải được bác sĩ
+                        kiểm tra trước khi sử dụng để điều trị.
+                        Bệnh nhân không có quyền tạo đơn thuốc.
+                    </p>
+                </div>
+            </section>
+
+            @if (!string.IsNullOrWhiteSpace(ActionMessage))
+            {
+                <div class="@ActionMessageClass">
+                    @ActionMessage
+                </div>
+            }
+
+            <section class="patient-selfexam-create-grid">
+                <article class="patient-card patient-selfexam-patient-card">
+                    <div class="patient-card-header">
+                        <div>
+                            <h2>Hồ sơ thực hiện khám</h2>
+
+                            <p>
+                                Hệ thống tự động sử dụng hồ sơ
+                                của tài khoản hiện tại.
+                            </p>
+                        </div>
+
+                        <div class="patient-section-icon blue">
+                            👤
+                        </div>
+                    </div>
+
+                    <div class="patient-selfexam-patient">
+                        <div class="patient-selfexam-avatar">
+                            @GetInitials(CurrentPatient.HoTen)
+                        </div>
+
+                        <div>
+                            <span>Bệnh nhân</span>
+
+                            <strong>
+                                @Text(CurrentPatient.HoTen)
+                            </strong>
+
+                            <small>
+                                @GenderText(CurrentPatient.Gioitinh)
+                                •
+                                @AgeText(CurrentPatient.Ngaysinh)
+                                •
+                                @Text(CurrentPatient.Dienthoai)
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="patient-selfexam-system-info">
+                        <div>
+                            <span>Hình thức khám</span>
+                            <strong>Từ xa / Tự nhập số đo</strong>
+                        </div>
+
+                        <div>
+                            <span>Bác sĩ phụ trách</span>
+                            <strong>Chờ phòng khám phân công</strong>
+                        </div>
+
+                        <div>
+                            <span>Trạng thái ban đầu</span>
+                            <strong>Chờ khám</strong>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="patient-card patient-selfexam-form-card">
+                    <div class="patient-card-header">
+                        <div>
+                            <h2>Thông tin ca khám</h2>
+
+                            <p>
+                                Vui lòng nhập đầy đủ các thông tin
+                                trước khi chuyển sang bước số đo.
+                            </p>
+                        </div>
+
+                        <div class="patient-section-icon cyan">
+                            🩺
+                        </div>
+                    </div>
+
+                    <div class="patient-selfexam-form">
+                        <div class="patient-selfexam-field">
+                            <label>
+                                Chiều cao (cm)
+                                <span>*</span>
+                            </label>
+
+                            <input type="number"
+                                   min="50"
+                                   max="250"
+                                   step="0.1"
+                                   disabled="@IsProcessing"
+                                   @bind="Height" />
+                        </div>
+
+                        <div class="patient-selfexam-field">
+                            <label>
+                                Cân nặng (kg)
+                                <span>*</span>
+                            </label>
+
+                            <input type="number"
+                                   min="5"
+                                   max="300"
+                                   step="0.1"
+                                   disabled="@IsProcessing"
+                                   @bind="Weight" />
+                        </div>
+
+                        <div class="patient-selfexam-field">
+                            <label>
+                                Nhiệt độ môi trường (°C)
+                                <span>*</span>
+                            </label>
+
+                            <input type="number"
+                                   min="0"
+                                   max="50"
+                                   step="0.1"
+                                   disabled="@IsProcessing"
+                                   @bind="EnvironmentTemperature" />
+                        </div>
+
+                        <div class="patient-selfexam-field">
+                            <label>BMI dự kiến</label>
+
+                            <input value="@BmiText"
+                                   readonly />
+                        </div>
+
+                        <div class="patient-selfexam-field full">
+                            <label>
+                                Lý do khám
+                                <span>*</span>
+                            </label>
+
+                            <textarea rows="5"
+                                      maxlength="2000"
+                                      disabled="@IsProcessing"
+                                      placeholder="Mô tả triệu chứng, thời gian xuất hiện và tình trạng hiện tại..."
+                                      @bind="Reason">
+                            </textarea>
+
+                            <small>
+                                Ví dụ: đau đầu, mất ngủ, mệt mỏi,
+                                đau lưng hoặc ăn uống kém.
+                            </small>
+                        </div>
+
+                        <div class="patient-selfexam-form-actions">
+                            <button class="patient-btn patient-btn-outline"
+                                    type="button"
+                                    disabled="@IsProcessing"
+                                    @onclick="GoHome">
+                                Hủy
+                            </button>
+
+                            <button class="patient-btn patient-btn-primary"
+                                    type="button"
+                                    disabled="@IsProcessing"
+                                    @onclick="CreateExam">
+                                @(IsProcessing
+                                    ? "Đang tạo ca khám..."
+                                    : "Tạo ca khám và nhập số đo")
+                            </button>
+                        </div>
+                    </div>
+                </article>
+            </section>
+        }
+        else if (CurrentExam == null)
+        {
+            <section class="patient-exam-denied">
+                <div class="patient-exam-denied-icon">
+                    🔒
+                </div>
+
+                <h1>Không thể truy cập ca khám</h1>
+
+                <p>
+                    Ca khám không tồn tại hoặc không thuộc
+                    hồ sơ bệnh nhân đang đăng nhập.
+                </p>
+
+                <div class="patient-exam-denied-actions">
+                    <button class="patient-btn patient-btn-outline"
+                            type="button"
+                            @onclick="GoHome">
+                        Về trang chủ
+                    </button>
+
+                    <button class="patient-btn patient-btn-primary"
+                            type="button"
+                            @onclick="GoCreateNewExam">
+                        Tạo ca khám mới
+                    </button>
+                </div>
+            </section>
+        }
+        else
+        {
+            <!-- =====================================================
+                 KHÔNG GIAN CA KHÁM ĐÃ TẠO
+                 ===================================================== -->
+
+            <header class="patient-selfexam-header">
+                <div>
+                    <button class="patient-back-button"
+                            type="button"
+                            @onclick="GoExamHistory">
+                        ← Quay lại lịch sử khám
+                    </button>
+
+                    <span class="patient-eyebrow">
+                        Ca khám tự nhập
+                    </span>
+
+                    <h1>
+                        @ExamTitle
+                    </h1>
+
+                    <p>
+                        Nhập số đo, chạy phân tích và gửi kết quả
+                        để bác sĩ kiểm tra.
+                    </p>
+                </div>
+
+                <div class="patient-selfexam-header-actions">
+                    <span class="@ExamStatusClass(CurrentExam.TrangThai)">
+                        @ExamStatusText(CurrentExam.TrangThai)
+                    </span>
+
+                    <button class="patient-btn patient-btn-outline"
+                            type="button"
+                            disabled="@IsProcessing"
+                            @onclick="ReloadPage">
+                        Làm mới
+                    </button>
+                </div>
+            </header>
+
+            <section class="patient-selfexam-exam-banner">
+                <div class="patient-selfexam-exam-code">
+                    <span>Ca khám</span>
+                    <strong>#@CurrentExam.Oid</strong>
+                </div>
+
+                <div class="patient-selfexam-exam-summary">
+                    <div>
+                        <span>Bệnh nhân</span>
+                        <strong>@CurrentPatient.HoTen</strong>
+                    </div>
+
+                    <div>
+                        <span>Ngày tạo</span>
+                        <strong>
+                            @CurrentExam.NgayCT.ToString(
+                                "HH:mm, dd/MM/yyyy")
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>Hình thức</span>
+                        <strong>Từ xa</strong>
+                    </div>
+
+                    <div>
+                        <span>Bác sĩ</span>
+                        <strong>
+                            @(CurrentExam.Bacsi == null
+                                ? "Chưa phân công"
+                                : CurrentExam.Bacsi.HoTen)
+                        </strong>
+                    </div>
+                </div>
+            </section>
+
+            <section class="patient-selfexam-disclaimer">
+                <span>⚠️</span>
+
+                <div>
+                    <strong>
+                        Chẩn đoán và pháp trị tự động chưa phải
+                        kết luận cuối cùng
+                    </strong>
+
+                    <p>
+                        Bác sĩ cần kiểm tra số đo và xác nhận chuyên môn.
+                        Không tự ý mua thuốc hoặc điều trị dựa trên
+                        kết quả tự động.
+                    </p>
+                </div>
+            </section>
+
+            @if (!string.IsNullOrWhiteSpace(ActionMessage))
+            {
+                <div class="@ActionMessageClass">
+                    @ActionMessage
+                </div>
+            }
+
+            <section class="patient-card patient-selfexam-workspace">
+                <div class="patient-selfexam-tabs">
+                    <button class="@GetTabClass("info")"
+                            type="button"
+                            @onclick='() => SetTab("info")'>
+                        <span>①</span>
+                        Thông tin
+                    </button>
+
+                    <button class="@GetTabClass("measurements")"
+                            type="button"
+                            @onclick='() => SetTab("measurements")'>
+                        <span>②</span>
+                        Nhập số đo
+                    </button>
+
+                    <button class="@GetTabClass("results")"
+                            type="button"
+                            @onclick='() => SetTab("results")'>
+                        <span>③</span>
+                        Kết quả phân tích
+                    </button>
+                </div>
+
+                <div class="patient-selfexam-workspace-body">
+
+                    @if (ActiveTab == "info")
+                    {
+                        <section class="patient-selfexam-section">
+                            <div class="patient-selfexam-section-head">
+                                <div>
+                                    <h2>Thông tin ca khám</h2>
+
+                                    <p>
+                                        Bạn chỉ được cập nhật thông tin
+                                        khi ca khám chưa được bác sĩ tiếp nhận.
+                                    </p>
+                                </div>
+
+                                @if (CanEditExam)
+                                {
+                                    <button class="patient-btn patient-btn-primary"
+                                            type="button"
+                                            disabled="@IsProcessing"
+                                            @onclick="SaveExamInformation">
+                                        @(IsProcessing
+                                            ? "Đang lưu..."
+                                            : "💾 Lưu thông tin")
+                                    </button>
+                                }
+                            </div>
+
+                            <div class="patient-selfexam-form">
+                                <div class="patient-selfexam-field">
+                                    <label>Chiều cao (cm)</label>
+
+                                    <input type="number"
+                                           min="50"
+                                           max="250"
+                                           step="0.1"
+                                           disabled="@(!CanEditExam || IsProcessing)"
+                                           @bind="Height" />
+                                </div>
+
+                                <div class="patient-selfexam-field">
+                                    <label>Cân nặng (kg)</label>
+
+                                    <input type="number"
+                                           min="5"
+                                           max="300"
+                                           step="0.1"
+                                           disabled="@(!CanEditExam || IsProcessing)"
+                                           @bind="Weight" />
+                                </div>
+
+                                <div class="patient-selfexam-field">
+                                    <label>Nhiệt độ môi trường (°C)</label>
+
+                                    <input type="number"
+                                           min="0"
+                                           max="50"
+                                           step="0.1"
+                                           disabled="@(!CanEditExam || IsProcessing)"
+                                           @bind="EnvironmentTemperature" />
+                                </div>
+
+                                <div class="patient-selfexam-field">
+                                    <label>BMI</label>
+
+                                    <input value="@BmiText"
+                                           readonly />
+                                </div>
+
+                                <div class="patient-selfexam-field full">
+                                    <label>Lý do khám</label>
+
+                                    <textarea rows="5"
+                                              maxlength="2000"
+                                              disabled="@(!CanEditExam || IsProcessing)"
+                                              @bind="Reason">
+                                    </textarea>
+                                </div>
+                            </div>
+
+                            @if (!CanEditExam)
+                            {
+                                <div class="patient-selfexam-locked">
+                                    <span>🔒</span>
+
+                                    <div>
+                                        <strong>Ca khám đã bị khóa chỉnh sửa</strong>
+
+                                        <p>
+                                            Phòng khám đã tiếp nhận hoặc hoàn tất
+                                            ca khám này.
+                                        </p>
+                                    </div>
+                                </div>
+                            }
+                        </section>
+                    }
+
+                    @if (ActiveTab == "measurements")
+                    {
+                        <section class="patient-selfexam-section">
+                            <div class="patient-selfexam-section-head">
+                                <div>
+                                    <h2>Nhập 12 cặp số đo tinh huyệt</h2>
+
+                                    <p>
+                                        Nhập đầy đủ giá trị bên trái và bên phải,
+                                        sau đó bấm phân tích.
+                                    </p>
+                                </div>
+
+                                @if (CanEditExam)
+                                {
+                                    <div class="patient-selfexam-section-actions">
+                                        <button class="patient-btn patient-btn-outline"
+                                                type="button"
+                                                disabled="@IsProcessing"
+                                                @onclick="SaveMeasurements">
+                                            💾 Lưu số đo
+                                        </button>
+
+                                        <button class="patient-btn patient-btn-primary"
+                                                type="button"
+                                                disabled="@IsProcessing"
+                                                @onclick="AnalyzeMeasurements">
+                                            @(IsProcessing
+                                                ? "Đang phân tích..."
+                                                : "🔄 Phân tích chẩn đoán")
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="patient-selfexam-measure-note">
+                                <span>ℹ️</span>
+
+                                <p>
+                                    Chỉ nhập số đo do thiết bị tại phòng khám
+                                    cung cấp. Không tự ước lượng giá trị.
+                                </p>
+                            </div>
+
+                            <div class="patient-selfexam-measure-grid">
+                                <article class="patient-selfexam-measure-panel">
+                                    <div class="patient-selfexam-measure-title">
+                                        <div>
+                                            <span>✋</span>
+
+                                            <div>
+                                                <strong>Chi trên</strong>
+                                                <small>Tinh huyệt từ 1 đến 6</small>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="patient-selfexam-table-wrap">
+                                        <table class="patient-selfexam-measure-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>TT</th>
+                                                    <th>Tinh huyệt</th>
+                                                    <th>Trái</th>
+                                                    <th>Phải</th>
+                                                    <th>Trung bình</th>
+                                                </tr>
+                                            </thead>
+
+                                            <tbody>
+                                                @foreach (
+                                                    MeasurementRowModel item
+                                                    in UpperMeasurements)
+                                                {
+                                                    <tr @key="item.TT">
+                                                        <td>
+                                                            <span class="patient-selfexam-order">
+                                                                @item.TT
+                                                            </span>
+                                                        </td>
+
+                                                        <td>
+                                                            <strong>
+                                                                @item.TinhHuyet
+                                                            </strong>
+                                                        </td>
+
+                                                        <td>
+                                                            <input class="patient-selfexam-measure-input"
+                                                                   type="number"
+                                                                   min="0"
+                                                                   max="500"
+                                                                   step="0.1"
+                                                                   disabled="@(!CanEditExam || IsProcessing)"
+                                                                   @bind="item.Trai" />
+                                                        </td>
+
+                                                        <td>
+                                                            <input class="patient-selfexam-measure-input"
+                                                                   type="number"
+                                                                   min="0"
+                                                                   max="500"
+                                                                   step="0.1"
+                                                                   disabled="@(!CanEditExam || IsProcessing)"
+                                                                   @bind="item.Phai" />
+                                                        </td>
+
+                                                        <td>
+                                                            @item.Average.ToString("0.##")
+                                                        </td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </article>
+
+                                <article class="patient-selfexam-measure-panel">
+                                    <div class="patient-selfexam-measure-title">
+                                        <div>
+                                            <span>🦶</span>
+
+                                            <div>
+                                                <strong>Chi dưới</strong>
+                                                <small>Tinh huyệt từ 7 đến 12</small>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="patient-selfexam-table-wrap">
+                                        <table class="patient-selfexam-measure-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>TT</th>
+                                                    <th>Tinh huyệt</th>
+                                                    <th>Trái</th>
+                                                    <th>Phải</th>
+                                                    <th>Trung bình</th>
+                                                </tr>
+                                            </thead>
+
+                                            <tbody>
+                                                @foreach (
+                                                    MeasurementRowModel item
+                                                    in LowerMeasurements)
+                                                {
+                                                    <tr @key="item.TT">
+                                                        <td>
+                                                            <span class="patient-selfexam-order">
+                                                                @item.TT
+                                                            </span>
+                                                        </td>
+
+                                                        <td>
+                                                            <strong>
+                                                                @item.TinhHuyet
+                                                            </strong>
+                                                        </td>
+
+                                                        <td>
+                                                            <input class="patient-selfexam-measure-input"
+                                                                   type="number"
+                                                                   min="0"
+                                                                   max="500"
+                                                                   step="0.1"
+                                                                   disabled="@(!CanEditExam || IsProcessing)"
+                                                                   @bind="item.Trai" />
+                                                        </td>
+
+                                                        <td>
+                                                            <input class="patient-selfexam-measure-input"
+                                                                   type="number"
+                                                                   min="0"
+                                                                   max="500"
+                                                                   step="0.1"
+                                                                   disabled="@(!CanEditExam || IsProcessing)"
+                                                                   @bind="item.Phai" />
+                                                        </td>
+
+                                                        <td>
+                                                            @item.Average.ToString("0.##")
+                                                        </td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </article>
+                            </div>
+
+                            @if (CanEditExam)
+                            {
+                                <div class="patient-selfexam-bottom-actions">
+                                    <button class="patient-btn patient-btn-outline"
+                                            type="button"
+                                            disabled="@IsProcessing"
+                                            @onclick="SaveMeasurements">
+                                        💾 Lưu số đo
+                                    </button>
+
+                                    <button class="patient-btn patient-btn-primary"
+                                            type="button"
+                                            disabled="@IsProcessing"
+                                            @onclick="AnalyzeMeasurements">
+                                        @(IsProcessing
+                                            ? "Đang phân tích..."
+                                            : "Phân tích và xem pháp trị →")
+                                    </button>
+                                </div>
+                            }
+                        </section>
+                    }
+
+                    @if (ActiveTab == "results")
+                    {
+                        <section class="patient-selfexam-section">
+                            <div class="patient-selfexam-section-head">
+                                <div>
+                                    <h2>Kết quả phân tích tự động</h2>
+
+                                    <p>
+                                        Kết quả được tạo từ 12 cặp số đo
+                                        và cần bác sĩ xác nhận.
+                                    </p>
+                                </div>
+
+                                @if (CanEditExam)
+                                {
+                                    <button class="patient-btn patient-btn-primary"
+                                            type="button"
+                                            disabled="@IsProcessing"
+                                            @onclick="AnalyzeMeasurements">
+                                        🔄 Phân tích lại
+                                    </button>
+                                }
+                            </div>
+
+                            @if (!HasAnalysisResult)
+                            {
+                                <div class="patient-empty-state">
+                                    <div>📊</div>
+
+                                    <strong>Chưa có kết quả phân tích</strong>
+
+                                    <p>
+                                        Hãy nhập đầy đủ 12 cặp số đo,
+                                        sau đó bấm “Phân tích chẩn đoán”.
+                                    </p>
+
+                                    <button class="patient-btn patient-btn-outline patient-empty-button"
+                                            type="button"
+                                            @onclick='() => SetTab("measurements")'>
+                                        Quay lại nhập số đo
+                                    </button>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="patient-selfexam-result-warning">
+                                    <span>⚠️</span>
+
+                                    <div>
+                                        <strong>
+                                            Chưa được bác sĩ xác nhận
+                                        </strong>
+
+                                        <p>
+                                            Không tự dùng kết quả này để mua thuốc,
+                                            châm cứu hoặc thay đổi điều trị.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div class="patient-selfexam-diagnosis-grid">
+                                    <article>
+                                        <span>Âm / Dương</span>
+                                        <strong>@EmptyText(CurrentExam.Amduong)</strong>
+                                    </article>
+
+                                    <article>
+                                        <span>Hư / Thực</span>
+                                        <strong>@EmptyText(CurrentExam.Huthuc)</strong>
+                                    </article>
+
+                                    <article>
+                                        <span>Khí / Huyết</span>
+                                        <strong>@EmptyText(CurrentExam.Khihuyet)</strong>
+                                    </article>
+
+                                    <article>
+                                        <span>Bệnh chứng</span>
+                                        <strong>@EmptyText(CurrentExam.Benhchung)</strong>
+                                    </article>
+                                </div>
+
+                                <article class="patient-selfexam-result-card">
+                                    <div class="patient-selfexam-result-head">
+                                        <div>
+                                            <h3>Chẩn đoán tự động</h3>
+                                            <p>Kết quả tổng hợp theo từng nhóm.</p>
+                                        </div>
+
+                                        <span>🧠</span>
+                                    </div>
+
+                                    @if (CurrentExam.ChanDoanTuDongs.Any())
+                                    {
+                                        <div class="patient-selfexam-table-wrap">
+                                            <table class="patient-selfexam-result-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Nhóm</th>
+                                                        <th>Kết quả</th>
+                                                    </tr>
+                                                </thead>
+
+                                                <tbody>
+                                                    @foreach (
+                                                        CakhamChanDoanTuDong item
+                                                        in CurrentExam
+                                                            .ChanDoanTuDongs
+                                                            .OrderBy(x => x.Nhom))
+                                                    {
+                                                        <tr>
+                                                            <td>
+                                                                <strong>@item.Nhom</strong>
+                                                            </td>
+
+                                                            <td>@item.KetQua</td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="patient-selfexam-result-empty">
+                                            Chưa có dữ liệu chẩn đoán chi tiết.
+                                        </div>
+                                    }
+                                </article>
+
+                                <article class="patient-selfexam-result-card">
+                                    <div class="patient-selfexam-result-head">
+                                        <div>
+                                            <h3>Ngũ tà</h3>
+                                            <p>Kết quả phân tích ngũ tà.</p>
+                                        </div>
+
+                                        <span>☯️</span>
+                                    </div>
+
+                                    @if (CurrentExam.NguTaTuDongs.Any())
+                                    {
+                                        <div class="patient-selfexam-table-wrap">
+                                            <table class="patient-selfexam-result-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Trái</th>
+                                                        <th>Giữa</th>
+                                                        <th>Phải</th>
+                                                        <th>Kết quả</th>
+                                                    </tr>
+                                                </thead>
+
+                                                <tbody>
+                                                    @foreach (
+                                                        CakhamNguTaTuDong item
+                                                        in CurrentExam
+                                                            .NguTaTuDongs
+                                                            .OrderBy(x => x.TT))
+                                                    {
+                                                        <tr>
+                                                            <td>@item.CotTrai</td>
+                                                            <td>@item.CotGiua</td>
+                                                            <td>@item.CotPhai</td>
+                                                            <td>
+                                                                <strong>@item.KetQua</strong>
+                                                            </td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="patient-selfexam-result-empty">
+                                            Chưa có dữ liệu ngũ tà.
+                                        </div>
+                                    }
+                                </article>
+
+                                <article class="patient-selfexam-result-card">
+                                    <div class="patient-selfexam-result-head">
+                                        <div>
+                                            <h3>Bệnh chứng gợi ý</h3>
+                                            <p>
+                                                Các bệnh chứng phù hợp
+                                                với kết quả đo.
+                                            </p>
+                                        </div>
+
+                                        <span>📋</span>
+                                    </div>
+
+                                    @if (CurrentExam.BenhChungTuDongs.Any())
+                                    {
+                                        <div class="patient-selfexam-table-wrap">
+                                            <table class="patient-selfexam-result-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Bệnh chứng</th>
+                                                        <th>Triệu chứng</th>
+                                                    </tr>
+                                                </thead>
+
+                                                <tbody>
+                                                    @foreach (
+                                                        CakhamBenhChungTuDong item
+                                                        in CurrentExam
+                                                            .BenhChungTuDongs
+                                                            .OrderBy(x => x.TenBenhChung))
+                                                    {
+                                                        <tr>
+                                                            <td>
+                                                                <strong>
+                                                                    @item.TenBenhChung
+                                                                </strong>
+                                                            </td>
+
+                                                            <td class="patient-selfexam-multiline">
+                                                                @item.TrieuChung
+                                                            </td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="patient-selfexam-result-empty">
+                                            Chưa tìm thấy bệnh chứng phù hợp.
+                                        </div>
+                                    }
+                                </article>
+
+                                <article class="patient-selfexam-result-card">
+                                    <div class="patient-selfexam-result-head">
+                                        <div>
+                                            <h3>Pháp trị gợi ý</h3>
+                                            <p>
+                                                Phương pháp điều trị,
+                                                phương dược và huyệt gợi ý.
+                                            </p>
+                                        </div>
+
+                                        <span>🌿</span>
+                                    </div>
+
+                                    @if (CurrentExam.PhapTriTuDongs.Any())
+                                    {
+                                        <div class="patient-selfexam-table-wrap">
+                                            <table class="patient-selfexam-result-table patient-selfexam-wide-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Bệnh chứng</th>
+                                                        <th>Huyệt</th>
+                                                        <th>Pháp điều trị</th>
+                                                        <th>Phương dược</th>
+                                                    </tr>
+                                                </thead>
+
+                                                <tbody>
+                                                    @foreach (
+                                                        CakhamPhapTriTuDong item
+                                                        in CurrentExam
+                                                            .PhapTriTuDongs
+                                                            .OrderBy(x => x.BenhChung))
+                                                    {
+                                                        <tr>
+                                                            <td>
+                                                                <strong>
+                                                                    @item.BenhChung
+                                                                </strong>
+                                                            </td>
+
+                                                            <td class="patient-selfexam-multiline">
+                                                                @item.Huyet
+                                                            </td>
+
+                                                            <td class="patient-selfexam-multiline">
+                                                                @item.PhapDieuTri
+                                                            </td>
+
+                                                            <td class="patient-selfexam-multiline">
+                                                                @item.PhuongDuoc
+                                                            </td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="patient-selfexam-result-empty">
+                                            Chưa có pháp trị phù hợp.
+                                        </div>
+                                    }
+                                </article>
+
+                                <div class="patient-selfexam-result-actions">
+                                    <button class="patient-btn patient-btn-outline"
+                                            type="button"
+                                            @onclick="GoExamHistory">
+                                        Xem lịch sử khám
+                                    </button>
+
+                                    <button class="patient-btn patient-btn-primary"
+                                            type="button"
+                                            @onclick="GoExamDetail">
+                                        Xem chi tiết ca khám
+                                    </button>
+                                </div>
+                            }
+                        </section>
+                    }
+                </div>
+            </section>
+        }
+    </main>
+</div>
+
+@code {
+    [Parameter]
+    public int Oid { get; set; }
+
+    private IObjectSpace objectSpace;
+
+    private Benhnhan CurrentPatient;
+
+    private Cakham CurrentExam;
+
+    private readonly List<MeasurementRowModel>
+        MeasurementRows = new();
+
+    private string CurrentUserName =
+        "Bệnh nhân";
+
+    private string ErrorMessage =
+        string.Empty;
+
+    private string ActionMessage =
+        string.Empty;
+
+    private string ActionMessageClass =
+        "patient-action-message success";
+
+    private string ActiveTab =
+        "info";
+
+    private string Reason =
+        string.Empty;
+
+    private double Height;
+
+    private double Weight;
+
+    private double EnvironmentTemperature =
+        26.3;
+
+    private bool IsLoading = true;
+
+    private bool IsProcessing;
+
+    private int LoadedOid = -1;
+
+    private string SidebarName =>
+        CurrentPatient?.HoTen
+        ?? CurrentUserName;
+
+    private bool CanEditExam =>
+        CurrentExam != null &&
+        CurrentExam.TrangThai ==
+            TrangThaiCaKham.ChoKham;
+
+    private string ExamTitle =>
+        CurrentExam == null
+            ? "Ca khám"
+            : $"{CurrentPatient?.HoTen} - " +
+              $"{CurrentExam.NgayCT:dd/MM/yyyy HH:mm}";
+
+    private string BmiText
+    {
+        get
+        {
+            if (Height <= 0 ||
+                Weight <= 0)
+            {
+                return "--";
+            }
+
+            double heightMeter =
+                Height / 100d;
+
+            double bmi =
+                Weight /
+                (heightMeter * heightMeter);
+
+            return bmi.ToString("0.0");
+        }
+    }
+
+    private IEnumerable<MeasurementRowModel>
+        UpperMeasurements =>
+            MeasurementRows
+                .Where(x => x.TT <= 6)
+                .OrderBy(x => x.TT);
+
+    private IEnumerable<MeasurementRowModel>
+        LowerMeasurements =>
+            MeasurementRows
+                .Where(x => x.TT >= 7)
+                .OrderBy(x => x.TT);
+
+    private bool HasAnalysisResult =>
+        CurrentExam != null &&
+        (
+            !string.IsNullOrWhiteSpace(
+                CurrentExam.Amduong) ||
+
+            !string.IsNullOrWhiteSpace(
+                CurrentExam.Huthuc) ||
+
+            !string.IsNullOrWhiteSpace(
+                CurrentExam.Khihuyet) ||
+
+            CurrentExam.ChanDoanTuDongs.Any() ||
+
+            CurrentExam.BenhChungTuDongs.Any() ||
+
+            CurrentExam.PhapTriTuDongs.Any()
+        );
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadPageData();
+    }
+
+    private async Task LoadPageData()
+    {
+        IsLoading = true;
+        ErrorMessage = string.Empty;
+
+        bool routeChanged =
+            LoadedOid != Oid;
+
+        try
+        {
+            objectSpace?.Dispose();
+
+            objectSpace =
+                ObjectSpaceFactory.CreateObjectSpace(
+                    typeof(Cakham)
+                );
+
+            CurrentUserName =
+                await CurrentPatientService
+                    .GetCurrentUserNameAsync();
+
+            CurrentPatient =
+                await CurrentPatientService
+                    .GetCurrentPatientAsync(
+                        objectSpace
+                    );
+
+            if (CurrentPatient == null)
+            {
+                CurrentExam = null;
+                MeasurementRows.Clear();
+                return;
+            }
+
+            if (Oid <= 0)
+            {
+                CurrentExam = null;
+
+                Height = 0;
+                Weight = 0;
+                EnvironmentTemperature = 26.3;
+                Reason = string.Empty;
+
+                CreateDefaultMeasurementModels();
+
+                ActiveTab = "info";
+                LoadedOid = Oid;
+
+                return;
+            }
+
+            CurrentExam =
+                await CurrentPatientService
+                    .GetOwnedExamAsync(
+                        objectSpace,
+                        Oid
+                    );
+
+            if (CurrentExam == null)
+            {
+                MeasurementRows.Clear();
+                return;
+            }
+
+            LoadFieldsFromExam();
+            LoadMeasurementsFromExam();
+
+            if (routeChanged)
+            {
+                ActiveTab =
+                    HasAnalysisResult
+                        ? "results"
+                        : "measurements";
+            }
+
+            LoadedOid = Oid;
+        }
+        catch (Exception ex)
+        {
+            CurrentExam = null;
+            MeasurementRows.Clear();
+
+            ErrorMessage =
+                "Đã xảy ra lỗi khi tải ca khám. " +
+                GetErrorMessage(ex);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private void LoadFieldsFromExam()
+    {
+        if (CurrentExam == null)
+        {
+            return;
+        }
+
+        Height =
+            CurrentExam.Chieucao;
+
+        Weight =
+            CurrentExam.Cannang;
+
+        EnvironmentTemperature =
+            CurrentExam.NhietDoMoiTruong;
+
+        Reason =
+            CurrentExam.LydoKham
+            ?? string.Empty;
+    }
+
+    private void LoadMeasurementsFromExam()
+    {
+        MeasurementRows.Clear();
+
+        if (CurrentExam == null)
+        {
+            CreateDefaultMeasurementModels();
+            return;
+        }
+
+        foreach (
+            CakhamSoDoChiTiet item
+            in CurrentExam
+                .SoDoChiTiets
+                .OrderBy(x => x.TT))
+        {
+            MeasurementRows.Add(
+                new MeasurementRowModel
+                {
+                    TT = item.TT,
+                    TinhHuyet =
+                        item.TinhHuyet
+                        ?? $"Huyệt {item.TT}",
+                    NhomChi =
+                        item.NhomChi ==
+                            NhomChiDo.ChiTren
+                                ? "Chi trên"
+                                : "Chi dưới",
+                    Trai = item.Trai,
+                    Phai = item.Phai
+                }
+            );
+        }
+
+        if (MeasurementRows.Count != 12)
+        {
+            MergeMissingMeasurementModels();
+        }
+    }
+
+    private void CreateDefaultMeasurementModels()
+    {
+        MeasurementRows.Clear();
+
+        foreach (
+            MeasurementRowModel item
+            in GetDefaultMeasurements())
+        {
+            MeasurementRows.Add(item);
+        }
+    }
+
+    private void MergeMissingMeasurementModels()
+    {
+        foreach (
+            MeasurementRowModel defaultItem
+            in GetDefaultMeasurements())
+        {
+            bool exists =
+                MeasurementRows.Any(x =>
+                    x.TT == defaultItem.TT
+                );
+
+            if (!exists)
+            {
+                MeasurementRows.Add(defaultItem);
+            }
+        }
+
+        MeasurementRows.Sort(
+            (left, right) =>
+                left.TT.CompareTo(right.TT)
+        );
+    }
+
+    private static List<MeasurementRowModel>
+        GetDefaultMeasurements()
+    {
+        return new List<MeasurementRowModel>
+        {
+            NewMeasurement(1, "Tiểu", "Chi trên"),
+            NewMeasurement(2, "Tâm", "Chi trên"),
+            NewMeasurement(3, "Tam", "Chi trên"),
+            NewMeasurement(4, "Bào", "Chi trên"),
+            NewMeasurement(5, "Đại", "Chi trên"),
+            NewMeasurement(6, "Phế", "Chi trên"),
+
+            NewMeasurement(7, "Bàng", "Chi dưới"),
+            NewMeasurement(8, "Thận", "Chi dưới"),
+            NewMeasurement(9, "Đảm", "Chi dưới"),
+            NewMeasurement(10, "Vị", "Chi dưới"),
+            NewMeasurement(11, "Can", "Chi dưới"),
+            NewMeasurement(12, "Tỳ", "Chi dưới")
+        };
+    }
+
+    private static MeasurementRowModel
+        NewMeasurement(
+            int tt,
+            string name,
+            string group)
+    {
+        return new MeasurementRowModel
+        {
+            TT = tt,
+            TinhHuyet = name,
+            NhomChi = group
+        };
+    }
+
+    private async Task CreateExam()
+    {
+        if (IsProcessing)
+        {
+            return;
+        }
+
+        IsProcessing = true;
+        ActionMessage = string.Empty;
+
+        try
+        {
+            int examOid =
+                await PatientSelfExamService
+                    .CreateExamAsync(
+                        Reason,
+                        Height,
+                        Weight,
+                        EnvironmentTemperature
+                    );
+
+            Navigation.NavigateTo(
+                $"/patient/exams/self/{examOid}"
+            );
+        }
+        catch (Exception ex)
+        {
+            ShowError(
+                GetErrorMessage(ex)
+            );
+        }
+        finally
+        {
+            IsProcessing = false;
+        }
+    }
+
+    private async Task SaveExamInformation()
+    {
+        if (IsProcessing ||
+            CurrentExam == null)
+        {
+            return;
+        }
+
+        IsProcessing = true;
+        ActionMessage = string.Empty;
+
+        try
+        {
+            await PatientSelfExamService
+                .UpdateExamInformationAsync(
+                    CurrentExam.Oid,
+                    Reason,
+                    Height,
+                    Weight,
+                    EnvironmentTemperature
+                );
+
+            await ReloadOwnedExam();
+
+            ShowSuccess(
+                "Đã lưu thông tin ca khám thành công."
+            );
+        }
+        catch (Exception ex)
+        {
+            ShowError(
+                GetErrorMessage(ex)
+            );
+        }
+        finally
+        {
+            IsProcessing = false;
+        }
+    }
+
+    private async Task SaveMeasurements()
+    {
+        if (IsProcessing ||
+            CurrentExam == null)
+        {
+            return;
+        }
+
+        IsProcessing = true;
+        ActionMessage = string.Empty;
+
+        try
+        {
+            await SaveMeasurementData();
+
+            await ReloadOwnedExam();
+
+            ShowSuccess(
+                "Đã lưu đầy đủ 12 cặp số đo."
+            );
+        }
+        catch (Exception ex)
+        {
+            ShowError(
+                GetErrorMessage(ex)
+            );
+        }
+        finally
+        {
+            IsProcessing = false;
+        }
+    }
+
+    private async Task AnalyzeMeasurements()
+    {
+        if (IsProcessing ||
+            CurrentExam == null)
+        {
+            return;
+        }
+
+        IsProcessing = true;
+        ActionMessage = string.Empty;
+
+        try
+        {
+            await SaveMeasurementData();
+
+            await PatientSelfExamService
+                .AnalyzeExamAsync(
+                    CurrentExam.Oid
+                );
+
+            await ReloadOwnedExam();
+
+            ActiveTab = "results";
+
+            ShowSuccess(
+                "Đã phân tích số đo. " +
+                "Kết quả đang chờ bác sĩ kiểm tra."
+            );
+        }
+        catch (Exception ex)
+        {
+            ShowError(
+                GetErrorMessage(ex)
+            );
+        }
+        finally
+        {
+            IsProcessing = false;
+        }
+    }
+
+    private async Task SaveMeasurementData()
+    {
+        List<PatientExamMeasurementInput> inputs =
+            MeasurementRows
+                .OrderBy(x => x.TT)
+                .Select(x =>
+                    new PatientExamMeasurementInput
+                    {
+                        TT = x.TT,
+                        Trai = x.Trai,
+                        Phai = x.Phai
+                    }
+                )
+                .ToList();
+
+        await PatientSelfExamService
+            .SaveMeasurementsAsync(
+                CurrentExam.Oid,
+                inputs
+            );
+    }
+
+    private async Task ReloadOwnedExam()
+    {
+        objectSpace?.Dispose();
+
+        objectSpace =
+            ObjectSpaceFactory.CreateObjectSpace(
+                typeof(Cakham)
+            );
+
+        CurrentPatient =
+            await CurrentPatientService
+                .GetCurrentPatientAsync(
+                    objectSpace
+                );
+
+        CurrentExam =
+            await CurrentPatientService
+                .GetOwnedExamAsync(
+                    objectSpace,
+                    Oid
+                );
+
+        LoadFieldsFromExam();
+        LoadMeasurementsFromExam();
+    }
+
+    private async Task ReloadPage()
+    {
+        ActionMessage = string.Empty;
+        await LoadPageData();
+    }
+
+    private void SetTab(string tab)
+    {
+        ActiveTab = tab;
+        ActionMessage = string.Empty;
+    }
+
+    private string GetTabClass(string tab)
+    {
+        return ActiveTab == tab
+            ? "patient-selfexam-tab active"
+            : "patient-selfexam-tab";
+    }
+
+    private void ShowSuccess(string message)
+    {
+        ActionMessageClass =
+            "patient-action-message success";
+
+        ActionMessage = message;
+    }
+
+    private void ShowError(string message)
+    {
+        ActionMessageClass =
+            "patient-action-message error";
+
+        ActionMessage = message;
+    }
+
+    private void GoHome()
+    {
+        Navigation.NavigateTo("/patient");
+    }
+
+    private void GoCreateNewExam()
+    {
+        Navigation.NavigateTo(
+            "/patient/exams/new"
+        );
+    }
+
+    private void GoExamHistory()
+    {
+        Navigation.NavigateTo(
+            "/patient/exams"
+        );
+    }
+
+    private void GoExamDetail()
+    {
+        if (CurrentExam == null)
+        {
+            return;
+        }
+
+        Navigation.NavigateTo(
+            $"/patient/exams/{CurrentExam.Oid}"
+        );
+    }
+
+    private string ExamStatusText(
+        TrangThaiCaKham status)
+    {
+        return status switch
+        {
+            TrangThaiCaKham.ChoKham =>
+                "Chờ bác sĩ",
+
+            TrangThaiCaKham.DangKham =>
+                "Đang khám",
+
+            TrangThaiCaKham.DaKham =>
+                "Đã hoàn thành",
+
+            TrangThaiCaKham.DaHuy =>
+                "Đã hủy",
+
+            _ => status.ToString()
+        };
+    }
+
+    private string ExamStatusClass(
+        TrangThaiCaKham status)
+    {
+        return status switch
+        {
+            TrangThaiCaKham.ChoKham =>
+                "patient-status warning",
+
+            TrangThaiCaKham.DangKham =>
+                "patient-status info",
+
+            TrangThaiCaKham.DaKham =>
+                "patient-status success",
+
+            TrangThaiCaKham.DaHuy =>
+                "patient-status danger",
+
+            _ => "patient-status neutral"
+        };
+    }
+
+    private string GenderText(int gender)
+    {
+        return gender switch
+        {
+            1 => "Nam",
+            2 => "Nữ",
+            _ => "Chưa cập nhật giới tính"
+        };
+    }
+
+    private string AgeText(DateTime birthDate)
+    {
+        if (birthDate == DateTime.MinValue)
+        {
+            return "Chưa cập nhật ngày sinh";
+        }
+
+        DateTime today =
+            DateTime.Today;
+
+        int age =
+            today.Year -
+            birthDate.Year;
+
+        if (birthDate.Date >
+            today.AddYears(-age))
+        {
+            age--;
+        }
+
+        return $"{Math.Max(age, 0)} tuổi";
+    }
+
+    private string EmptyText(string value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? "Chưa có kết quả"
+            : value;
+    }
+
+    private string Text(string value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? "Chưa cập nhật"
+            : value;
+    }
+
+    private string GetInitials(string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+        {
+            return "BN";
+        }
+
+        string[] parts =
+            fullName.Split(
+                ' ',
+                StringSplitOptions.RemoveEmptyEntries
+            );
+
+        if (parts.Length == 0)
+        {
+            return "BN";
+        }
+
+        if (parts.Length == 1)
+        {
+            return parts[0]
+                .Substring(
+                    0,
+                    Math.Min(2, parts[0].Length)
+                )
+                .ToUpperInvariant();
+        }
+
+        return $"{parts[0][0]}{parts[^1][0]}"
+            .ToUpperInvariant();
+    }
+
+    private string GetErrorMessage(
+        Exception exception)
+    {
+        Exception current =
+            exception;
+
+        while (
+            current.InnerException != null &&
+            !string.IsNullOrWhiteSpace(
+                current.InnerException.Message
+            )
+        )
+        {
+            current =
+                current.InnerException;
+        }
+
+        return current.Message;
+    }
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+
+    private sealed class MeasurementRowModel
+    {
+        public int TT { get; set; }
+
+        public string TinhHuyet { get; set; } =
+            string.Empty;
+
+        public string NhomChi { get; set; } =
+            string.Empty;
+
+        public double Trai { get; set; }
+
+        public double Phai { get; set; }
+
+        public double Average =>
+            Trai <= 0 && Phai <= 0
+                ? 0
+                : (Trai + Phai) / 2d;
+    }
+}

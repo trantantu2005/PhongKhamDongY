@@ -1,0 +1,381 @@
+﻿@page "/staff/patients/new"
+@page "/staff/patients/edit/{Oid:int}"
+
+@using Microsoft.AspNetCore.Authorization
+@using ybaso.Blazor.Server.Shared
+@using DevExpress.ExpressApp
+@using Microsoft.AspNetCore.Components.Authorization
+@using ybaso.Module.BusinessObjects
+@implements IDisposable
+@attribute [Authorize(Roles = "NhanVien,Admin")]
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<div class="staff-page">
+    <StaffSidebar ActiveMenu="patients" />
+
+    <main class="staff-main">
+        <header class="mf-topbar">
+            <div>
+                <h1>@PageTitle</h1>
+                <p>Nhập thông tin hồ sơ bệnh nhân để phục vụ tiếp nhận và tạo ca khám.</p>
+            </div>
+
+            <div class="mf-actions">
+                <button class="mf-btn mf-btn-outline" type="button" @onclick="GoPatients">
+                    ← Quay lại
+                </button>
+
+                <button class="mf-btn mf-btn-primary" type="button" @onclick="SavePatient">
+                    💾 Lưu bệnh nhân
+                </button>
+            </div>
+        </header>
+
+        @if (!string.IsNullOrWhiteSpace(Message))
+        {
+            <div class="@MessageClass">
+                @Message
+            </div>
+        }
+
+        <section class="staff-form-card">
+            <div class="staff-form-header">
+                <div class="staff-form-avatar">
+                    @GetInitials(PreviewName)
+                </div>
+
+                <div>
+                    <h2>@PreviewName</h2>
+                    <p>@PreviewSubtitle</p>
+                </div>
+            </div>
+
+            <div class="staff-form-grid">
+                <div class="staff-form-group">
+                    <label>Họ <span class="required">*</span></label>
+                    <input class="staff-form-control"
+                           placeholder="Nhập họ..."
+                           @bind="Ho" />
+                </div>
+
+                <div class="staff-form-group">
+                    <label>Tên <span class="required">*</span></label>
+                    <input class="staff-form-control"
+                           placeholder="Nhập tên..."
+                           @bind="Ten" />
+                </div>
+
+                <div class="staff-form-group">
+                    <label>Ngày sinh</label>
+                    <input class="staff-form-control"
+                           type="date"
+                           value="@NgaySinhValue"
+                           @onchange="OnNgaySinhChanged" />
+                </div>
+
+                <div class="staff-form-group">
+                    <label>Giới tính</label>
+                    <select class="staff-form-control" @bind="GioiTinhValue">
+                        <option value="1">Nam</option>
+                        <option value="0">Nữ</option>
+                    </select>
+                </div>
+
+                <div class="staff-form-group">
+                    <label>Điện thoại</label>
+                    <input class="staff-form-control"
+                           placeholder="Nhập số điện thoại..."
+                           @bind="DienThoai" />
+                </div>
+
+                <div class="staff-form-group">
+                    <label>Email</label>
+                    <input class="staff-form-control"
+                           placeholder="Nhập email..."
+                           @bind="Email" />
+                </div>
+
+                <div class="staff-form-group">
+                    <label>Số CMND/CCCD</label>
+                    <input class="staff-form-control"
+                           placeholder="Nhập số CMND/CCCD..."
+                           @bind="SoCMND" />
+                </div>
+
+                <div class="staff-form-group">
+                    <label>Tuổi</label>
+                    <input class="staff-form-control"
+                           value="@TuoiText"
+                           readonly />
+                </div>
+
+                <div class="staff-form-group full">
+                    <label>Địa chỉ</label>
+                    <textarea class="staff-form-control"
+                              placeholder="Nhập địa chỉ..."
+                              @bind="DiaChi"></textarea>
+                </div>
+            </div>
+
+            <div class="staff-form-footer">
+                <button class="mf-btn mf-btn-outline" type="button" @onclick="GoPatients">
+                    Hủy
+                </button>
+
+                <button class="mf-btn mf-btn-outline" type="button" @onclick="SaveAndCreateExam">
+                    Lưu và tạo ca khám
+                </button>
+
+                <button class="mf-btn mf-btn-primary" type="button" @onclick="SavePatient">
+                    Lưu bệnh nhân
+                </button>
+            </div>
+        </section>
+        <PatientAccountManager PatientOid="@Oid" />
+    </main>
+</div>
+
+@code {
+    [Parameter]
+    public int Oid { get; set; }
+
+    private IObjectSpace objectSpace;
+    private Benhnhan BenhNhan;
+
+    private string CurrentUserName = "Nhân viên";
+    private string Message = "";
+    private string MessageClass = "mf-alert mf-alert-success";
+
+    private string Ho = "";
+    private string Ten = "";
+    private DateTime NgaySinh = DateTime.Today;
+    private string GioiTinhValue = "1";
+    private string DienThoai = "";
+    private string Email = "";
+    private string SoCMND = "";
+    private string DiaChi = "";
+
+    private bool IsEditMode => Oid > 0;
+
+    private string PageTitle => IsEditMode ? "Cập nhật bệnh nhân" : "Thêm bệnh nhân mới";
+
+    private string NgaySinhValue => NgaySinh.ToString("yyyy-MM-dd");
+
+    private string PreviewName
+    {
+        get
+        {
+            string fullName = $"{Ho} {Ten}".Trim();
+            return string.IsNullOrWhiteSpace(fullName) ? "Bệnh nhân mới" : fullName;
+        }
+    }
+
+    private string PreviewSubtitle
+    {
+        get
+        {
+            string gioiTinh = GioiTinhValue == "1" ? "Nam" : "Nữ";
+            string dienThoai = string.IsNullOrWhiteSpace(DienThoai) ? "Chưa có số điện thoại" : DienThoai;
+
+            return $"{gioiTinh} • {dienThoai}";
+        }
+    }
+
+    private string TuoiText
+    {
+        get
+        {
+            int tuoi = TinhTuoi(NgaySinh);
+            return tuoi <= 0 ? "Chưa xác định" : tuoi.ToString();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        objectSpace = ObjectSpaceFactory.CreateObjectSpace(typeof(Benhnhan));
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        CurrentUserName = authState.User?.Identity?.Name ?? "Nhân viên";
+
+        LoadPatient();
+    }
+
+    private void LoadPatient()
+    {
+        if (IsEditMode)
+        {
+            BenhNhan = objectSpace.GetObjectByKey<Benhnhan>(Oid);
+
+            if (BenhNhan == null)
+            {
+                MessageClass = "mf-alert mf-alert-danger";
+                Message = "Không tìm thấy bệnh nhân cần cập nhật.";
+                return;
+            }
+
+            Ho = BenhNhan.Ho ?? "";
+            Ten = BenhNhan.Ten ?? "";
+            NgaySinh = BenhNhan.Ngaysinh == DateTime.MinValue ? DateTime.Today : BenhNhan.Ngaysinh;
+            GioiTinhValue = BenhNhan.Gioitinh.ToString();
+            DienThoai = BenhNhan.Dienthoai ?? "";
+            Email = BenhNhan.Email ?? "";
+            SoCMND = BenhNhan.SoCMND ?? "";
+            DiaChi = BenhNhan.Diachi ?? "";
+        }
+        else
+        {
+            BenhNhan = objectSpace.CreateObject<Benhnhan>();
+            NgaySinh = DateTime.Today;
+            GioiTinhValue = "1";
+        }
+    }
+
+    private void OnNgaySinhChanged(ChangeEventArgs e)
+    {
+        string value = e.Value?.ToString() ?? "";
+
+        if (DateTime.TryParse(value, out DateTime result))
+        {
+            NgaySinh = result;
+        }
+    }
+
+    private bool ValidateForm()
+    {
+        Message = "";
+
+        if (BenhNhan == null)
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Không có đối tượng bệnh nhân để lưu.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(Ho))
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Vui lòng nhập họ bệnh nhân.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(Ten))
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Vui lòng nhập tên bệnh nhân.";
+            return false;
+        }
+
+        if (!int.TryParse(GioiTinhValue, out int gioiTinh) || (gioiTinh != 0 && gioiTinh != 1))
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Giới tính không hợp lệ.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool SaveCore()
+    {
+        if (!ValidateForm())
+            return false;
+
+        BenhNhan.Ho = Ho.Trim();
+        BenhNhan.Ten = Ten.Trim();
+        BenhNhan.Ngaysinh = NgaySinh;
+        BenhNhan.Gioitinh = int.Parse(GioiTinhValue);
+        BenhNhan.Dienthoai = DienThoai?.Trim();
+        BenhNhan.Email = Email?.Trim();
+        BenhNhan.SoCMND = SoCMND?.Trim();
+        BenhNhan.Diachi = DiaChi?.Trim();
+
+        objectSpace.CommitChanges();
+
+        return true;
+    }
+
+    private void SavePatient()
+    {
+        try
+        {
+            if (!SaveCore())
+                return;
+
+            Navigation.NavigateTo("/staff/patients");
+        }
+        catch (Exception ex)
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Lỗi khi lưu bệnh nhân: " + ex.Message;
+        }
+    }
+
+    private void SaveAndCreateExam()
+    {
+        try
+        {
+            if (!SaveCore())
+                return;
+
+            Cakham caKham = objectSpace.CreateObject<Cakham>();
+
+            caKham.BenhNhan = BenhNhan;
+            caKham.NgayCT = DateTime.Now;
+            caKham.Tuoi = TinhTuoi(BenhNhan.Ngaysinh);
+            caKham.TrangThai = TrangThaiCaKham.ChoKham;
+            caKham.LoaiCakham = LoaiCaKham.TrucTiep;
+            caKham.LoaiLuotKham = IsEditMode ? LoaiLuotKham.BenhNhanCu : LoaiLuotKham.BenhNhanMoi;
+            caKham.NhietDoMoiTruong = 26.3;
+
+            objectSpace.CommitChanges();
+
+            Navigation.NavigateTo($"/staff/exams/{caKham.Oid}");
+        }
+        catch (Exception ex)
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Lỗi khi lưu và tạo ca khám: " + ex.Message;
+        }
+    }
+
+    private int TinhTuoi(DateTime ngaySinh)
+    {
+        if (ngaySinh == DateTime.MinValue)
+            return 0;
+
+        int tuoi = DateTime.Today.Year - ngaySinh.Year;
+
+        if (ngaySinh.Date > DateTime.Today.AddYears(-tuoi))
+            tuoi--;
+
+        return tuoi < 0 ? 0 : tuoi;
+    }
+
+    private string GetInitials(string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+            return "NV";
+
+        string[] parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length == 1)
+            return parts[0].Substring(0, Math.Min(2, parts[0].Length)).ToUpperInvariant();
+
+        return $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant();
+    }
+
+    private void GoPatients() => Navigation.NavigateTo("/staff/patients");
+    private void GoExams() => Navigation.NavigateTo("/staff/exams");
+    private void GoPrescriptions() => Navigation.NavigateTo("/staff/prescriptions");
+    private void GoMedicines() => Navigation.NavigateTo("/staff/medicines");
+    private void GoImports() => Navigation.NavigateTo("/staff/imports");
+    private void GoExports() => Navigation.NavigateTo("/staff/exports");
+    private void GoReports() => Navigation.NavigateTo("/staff/reports");
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+}

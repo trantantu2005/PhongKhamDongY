@@ -1,0 +1,1607 @@
+﻿@page "/doctor/exams/{Oid:int}"
+
+
+
+@using System.Collections
+@using System.Globalization
+@using System.Reflection
+@using DevExpress.ExpressApp
+@using ybaso.Module.BusinessObjects
+@implements IDisposable
+
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject NavigationManager Navigation
+
+
+<style>
+    /* FIX CỨNG CHO Ô NHẬP SỐ ĐO: đặt ngay trong Razor để không phụ thuộc cache doctor.css */
+    /* Hai bảng nằm song song: Chi trên bên trái, Chi dưới bên phải */
+    .doctor-measure-grid {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+        gap: 18px !important;
+        align-items: start !important;
+    }
+
+    .doctor-measure-panel {
+        min-width: 0 !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+    }
+
+    .doctor-measure-panel .mf-table {
+        width: 100% !important;
+        min-width: 640px !important;
+        table-layout: fixed !important;
+    }
+
+    .doctor-measure-panel .mf-table th,
+    .doctor-measure-panel .mf-table td {
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+    }
+
+    .doctor-measure-panel .mf-table th:nth-child(1),
+    .doctor-measure-panel .mf-table td:nth-child(1) {
+        width: 42px !important;
+    }
+
+    .doctor-measure-panel .mf-table th:nth-child(2),
+    .doctor-measure-panel .mf-table td:nth-child(2) {
+        width: 88px !important;
+    }
+
+    .doctor-measure-panel .mf-table th:nth-child(3),
+    .doctor-measure-panel .mf-table th:nth-child(4),
+    .doctor-measure-panel .mf-table td:nth-child(3),
+    .doctor-measure-panel .mf-table td:nth-child(4) {
+        width: 82px !important;
+    }
+
+    .doctor-measure-panel .mf-table th:nth-child(5),
+    .doctor-measure-panel .mf-table th:nth-child(6),
+    .doctor-measure-panel .mf-table td:nth-child(5),
+    .doctor-measure-panel .mf-table td:nth-child(6) {
+        width: 105px !important;
+    }
+
+    .doctor-measure-panel .mf-table th:nth-child(7),
+    .doctor-measure-panel .mf-table td:nth-child(7) {
+        width: 110px !important;
+    }
+
+    .doctor-measure-panel input.doctor-measure-input {
+        display: block !important;
+        width: 72px !important;
+        min-width: 72px !important;
+        max-width: 72px !important;
+        height: 42px !important;
+        min-height: 42px !important;
+        box-sizing: border-box !important;
+        padding: 8px 10px !important;
+        border: 1px solid #b8c8d5 !important;
+        border-radius: 10px !important;
+        background: #fff !important;
+        color: #17202a !important;
+        caret-color: #17202a !important;
+        opacity: 1 !important;
+        font-size: 16px !important;
+        font-weight: 600 !important;
+        line-height: 1.2 !important;
+        text-align: center !important;
+        pointer-events: auto !important;
+        user-select: text !important;
+        -webkit-user-select: text !important;
+        cursor: text !important;
+        position: relative !important;
+        z-index: 5 !important;
+    }
+
+    .doctor-measure-panel input.doctor-measure-input:focus {
+        border-color: #0f766e !important;
+        outline: 2px solid rgba(15, 118, 110, .2) !important;
+        outline-offset: 1px !important;
+        box-shadow: none !important;
+    }
+
+    .doctor-measure-panel input.doctor-measure-input::placeholder {
+        color: #94a3b8 !important;
+        opacity: 1 !important;
+    }
+
+    /* Chỉ xếp dọc khi màn hình thật sự nhỏ */
+    @@media (max-width: 1050px) {
+        .doctor-measure-grid {
+            grid-template-columns: 1fr !important;
+        }
+    }
+</style>
+
+<div class="doctor-page">
+    <DoctorSidebar />
+
+    <main class="doctor-main">
+        @if (CaKham == null)
+        {
+            <div class="mf-alert mf-alert-danger">
+                Không tìm thấy ca khám.
+            </div>
+        }
+        else
+        {
+            <header class="mf-topbar">
+                <div>
+                    <h1>@TenCaKham</h1>
+                    <p>@ThongTinPhu</p>
+                </div>
+
+                <div class="mf-actions">
+                    <button class="mf-btn mf-btn-outline" @onclick="GoExams">
+                        ← Quay lại
+                    </button>
+
+                    <button class="mf-btn mf-btn-outline" @onclick="SaveSoDo">
+                        💾 Lưu số đo
+                    </button>
+
+                    <button class="mf-btn mf-btn-primary" @onclick="PhanTichSoDo">
+                        🔄 Phân tích số đo
+                    </button>
+                </div>
+            </header>
+
+            @if (!string.IsNullOrWhiteSpace(Message))
+            {
+                <div class="@MessageClass">
+                    @Message
+                </div>
+            }
+
+            <section class="doctor-stats">
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon blue">👤</div>
+                    <div>
+                        <p>Bệnh nhân</p>
+                        <h3>@TenBenhNhan</h3>
+                    </div>
+                </div>
+
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon orange">📅</div>
+                    <div>
+                        <p>Ngày khám</p>
+                        <h3>@NgayKham.ToString("dd/MM/yyyy")</h3>
+                    </div>
+                </div>
+
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon green">🩺</div>
+                    <div>
+                        <p>Bác sĩ</p>
+                        <h3>@TenBacSi</h3>
+                    </div>
+                </div>
+
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon purple">📌</div>
+                    <div>
+                        <p>Trạng thái</p>
+                        <h3>@TrangThaiValue</h3>
+                    </div>
+                </div>
+            </section>
+
+            <section class="doctor-workspace-card">
+                <div class="doctor-tabs">
+                    <button class="@GetTabClass("thongtin")" @onclick='() => SetTab("thongtin")'>Thông tin</button>
+                    <button class="@GetTabClass("sodo")" @onclick='() => SetTab("sodo")'>Số đo</button>
+                    <button class="@GetTabClass("chandoan")" @onclick='() => SetTab("chandoan")'>Chẩn đoán</button>
+                    <button class="@GetTabClass("nguta")" @onclick='() => SetTab("nguta")'>Ngũ tà</button>
+                    <button class="@GetTabClass("benhchung")" @onclick='() => SetTab("benhchung")'>Bệnh chứng</button>
+                    <button class="@GetTabClass("phaptri")" @onclick='() => SetTab("phaptri")'>Pháp trị</button>
+                    <button class="@GetTabClass("donthuoc")" @onclick='() => SetTab("donthuoc")'>Đơn thuốc</button>
+                </div>
+
+                <div class="doctor-workspace-body">
+                    @if (ActiveTab == "thongtin")
+                    {
+                        <div class="doctor-section">
+                            <div class="doctor-section-head">
+                                <div>
+                                    <h2>Thông tin ca khám</h2>
+                                    <p>Chọn bệnh nhân, bác sĩ và cập nhật thông tin cơ bản của ca khám.</p>
+                                </div>
+
+                                <button class="mf-btn mf-btn-primary" @onclick="SaveThongTinCaKham">
+                                    💾 Lưu thông tin
+                                </button>
+                            </div>
+
+                            <div class="doctor-form-card">
+                                <div class="doctor-form-grid">
+                                    <div class="doctor-form-group">
+                                        <label>Bệnh nhân <span class="required">*</span></label>
+                                        <select class="doctor-form-control" value="@SelectedBenhNhanOid" @onchange="OnBenhNhanChanged">
+                                            <option value="">-- Chọn bệnh nhân --</option>
+
+                                            @foreach (var bn in DanhSachBenhNhan)
+                                            {
+                                                <option value="@bn.Oid">@bn.HoTen - @bn.Dienthoai</option>
+                                            }
+                                        </select>
+                                    </div>
+
+                                    <div class="doctor-form-group">
+                                        <label>Bác sĩ</label>
+                                        <select class="doctor-form-control" value="@SelectedBacSiOid" @onchange="OnBacSiChanged">
+                                            <option value="">-- Chọn bác sĩ --</option>
+
+                                            @foreach (var bs in DanhSachBacSi)
+                                            {
+                                                <option value="@bs.Oid">@bs.HoTen - @bs.ChucVu</option>
+                                            }
+                                        </select>
+                                    </div>
+
+                                    <div class="doctor-form-group">
+                                        <label>Ngày giờ khám</label>
+                                        <input class="doctor-form-control"
+                                               type="datetime-local"
+                                               value="@NgayKhamValue"
+                                               @onchange="OnNgayKhamChanged" />
+                                    </div>
+
+                                    <div class="doctor-form-group">
+                                        <label>Tuổi</label>
+                                        <input class="doctor-form-control" value="@TuoiText" readonly />
+                                    </div>
+
+                                    <div class="doctor-form-group">
+                                        <label>Loại lượt khám</label>
+                                        <select class="doctor-form-control" @bind="LoaiLuotKhamValue">
+                                            <option value="BenhNhanMoi">Bệnh nhân mới</option>
+                                            <option value="BenhNhanCu">Bệnh nhân cũ</option>
+                                            <option value="TaiKham">Tái khám</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="doctor-form-group">
+                                        <label>Loại ca khám</label>
+                                        <select class="doctor-form-control" @bind="LoaiCaKhamValue">
+                                            <option value="TrucTiep">Trực tiếp</option>
+                                            <option value="TuXa">Từ xa</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="doctor-form-group">
+                                        <label>Trạng thái</label>
+                                        <select class="doctor-form-control" @bind="TrangThaiValue">
+                                            <option value="ChoKham">Chờ khám</option>
+                                            <option value="DangKham">Đang khám</option>
+                                            <option value="DaKham">Đã khám</option>
+                                            <option value="DaHuy">Đã hủy</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="doctor-form-group">
+                                        <label>Nhiệt độ môi trường</label>
+                                        <input class="doctor-form-control"
+                                               type="number"
+                                               step="0.1"
+                                               @bind="NhietDoMoiTruong" />
+                                    </div>
+
+                                    <div class="doctor-form-group">
+                                        <label>Chiều cao</label>
+                                        <input class="doctor-form-control"
+                                               type="number"
+                                               step="0.1"
+                                               @bind="ChieuCao" />
+                                    </div>
+
+                                    <div class="doctor-form-group">
+                                        <label>Cân nặng</label>
+                                        <input class="doctor-form-control"
+                                               type="number"
+                                               step="0.1"
+                                               @bind="CanNang" />
+                                    </div>
+
+                                    <div class="doctor-form-group">
+                                        <label>BMI</label>
+                                        <input class="doctor-form-control"
+                                               value="@FormatDouble(CaKham.BMI)"
+                                               readonly />
+                                    </div>
+
+                                    <div class="doctor-form-group full">
+                                        <label>Lý do khám</label>
+                                        <textarea class="doctor-form-control"
+                                                  placeholder="Nhập lý do khám..."
+                                                  @bind="LyDoKham"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    @if (ActiveTab == "sodo")
+                    {
+                        <div class="doctor-section">
+                            <div class="doctor-section-head">
+                                <div>
+                                    <h2>Số đo huyệt</h2>
+                                    <p>Nhập số đo trái/phải cho 12 tinh huyệt. Sau đó bấm phân tích số đo.</p>
+                                </div>
+
+                                <div class="mf-actions">
+                                    <button class="mf-btn mf-btn-outline" @onclick="SaveSoDo">💾 Lưu số đo</button>
+                                    <button class="mf-btn mf-btn-primary" @onclick="PhanTichSoDo">🔄 Phân tích</button>
+                                </div>
+                            </div>
+
+                            <div class="doctor-measure-grid">
+                                <div class="doctor-measure-panel">
+                                    <h3>Chi trên</h3>
+
+                                    <table class="mf-table">
+                                        <thead>
+                                            <tr>
+                                                <th>TT</th>
+                                                <th>Tinh huyệt</th>
+                                                <th>Trái</th>
+                                                <th>Phải</th>
+                                                <th>Trái +/-</th>
+                                                <th>Phải +/-</th>
+                                                <th>Lệch TB</th>
+                                            </tr>
+                                        </thead>
+
+                                        <tbody>
+                                            @foreach (var dong in SoDoChiTren)
+                                            {
+                                                <tr>
+                                                    <td>@dong.TT</td>
+                                                    <td><strong>@dong.TinhHuyet</strong></td>
+                                                    <td>
+                                                        <input class="doctor-measure-input"
+                                                               type="text"
+                                                               inputmode="decimal"
+                                                               autocomplete="off"
+                                                               onkeydown="event.stopPropagation();"
+                                                               onclick="event.stopPropagation();"
+                                                               placeholder="0.0"
+                                                               value="@FormatInputValue(dong.Trai)"
+                                                               @onchange="e => UpdateSoDo(dong, true, e.Value)" />
+                                                    </td>
+                                                    <td>
+                                                        <input class="doctor-measure-input"
+                                                               type="text"
+                                                               inputmode="decimal"
+                                                               autocomplete="off"
+                                                               onkeydown="event.stopPropagation();"
+                                                               onclick="event.stopPropagation();"
+                                                               placeholder="0.0"
+                                                               value="@FormatInputValue(dong.Phai)"
+                                                               @onchange="e => UpdateSoDo(dong, false, e.Value)" />
+                                                    </td>
+                                                    <td><span class="@GetDanhGiaClass(dong.TraiDanhGia)">@EmptyText(dong.TraiDanhGia)</span></td>
+                                                    <td><span class="@GetDanhGiaClass(dong.PhaiDanhGia)">@EmptyText(dong.PhaiDanhGia)</span></td>
+                                                    <td>@FormatDouble(dong.LechTrungBinh)</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div class="doctor-measure-panel">
+                                    <h3>Chi dưới</h3>
+
+                                    <table class="mf-table">
+                                        <thead>
+                                            <tr>
+                                                <th>TT</th>
+                                                <th>Tinh huyệt</th>
+                                                <th>Trái</th>
+                                                <th>Phải</th>
+                                                <th>Trái +/-</th>
+                                                <th>Phải +/-</th>
+                                                <th>Lệch TB</th>
+                                            </tr>
+                                        </thead>
+
+                                        <tbody>
+                                            @foreach (var dong in SoDoChiDuoi)
+                                            {
+                                                <tr>
+                                                    <td>@dong.TT</td>
+                                                    <td><strong>@dong.TinhHuyet</strong></td>
+                                                    <td>
+                                                        <input class="doctor-measure-input"
+                                                               type="text"
+                                                               inputmode="decimal"
+                                                               autocomplete="off"
+                                                               onkeydown="event.stopPropagation();"
+                                                               onclick="event.stopPropagation();"
+                                                               placeholder="0.0"
+                                                               value="@FormatInputValue(dong.Trai)"
+                                                               @onchange="e => UpdateSoDo(dong, true, e.Value)" />
+                                                    </td>
+                                                    <td>
+                                                        <input class="doctor-measure-input"
+                                                               type="text"
+                                                               inputmode="decimal"
+                                                               autocomplete="off"
+                                                               onkeydown="event.stopPropagation();"
+                                                               onclick="event.stopPropagation();"
+                                                               placeholder="0.0"
+                                                               value="@FormatInputValue(dong.Phai)"
+                                                               @onchange="e => UpdateSoDo(dong, false, e.Value)" />
+                                                    </td>
+                                                    <td><span class="@GetDanhGiaClass(dong.TraiDanhGia)">@EmptyText(dong.TraiDanhGia)</span></td>
+                                                    <td><span class="@GetDanhGiaClass(dong.PhaiDanhGia)">@EmptyText(dong.PhaiDanhGia)</span></td>
+                                                    <td>@FormatDouble(dong.LechTrungBinh)</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    @if (ActiveTab == "chandoan")
+                    {
+                        <div class="doctor-section">
+                            <div class="doctor-section-head">
+                                <div>
+                                    <h2>Chẩn đoán tự động</h2>
+                                    <p>Kết quả phân tích Âm/Dương, Hư/Thực, Khí/Huyết từ số đo.</p>
+                                </div>
+
+                                <button class="mf-btn mf-btn-primary" @onclick="PhanTichSoDo">
+                                    🔄 Phân tích lại
+                                </button>
+                            </div>
+
+                            <div class="doctor-diagnosis-grid">
+                                <div class="doctor-diagnosis-card">
+                                    <span>Âm/Dương</span>
+                                    <strong>@EmptyText(CaKham.Amduong)</strong>
+                                </div>
+
+                                <div class="doctor-diagnosis-card">
+                                    <span>Hư/Thực</span>
+                                    <strong>@EmptyText(CaKham.Huthuc)</strong>
+                                </div>
+
+                                <div class="doctor-diagnosis-card">
+                                    <span>Khí/Huyết</span>
+                                    <strong>@EmptyText(CaKham.Khihuyet)</strong>
+                                </div>
+
+                                <div class="doctor-diagnosis-card">
+                                    <span>Bệnh chứng</span>
+                                    <strong>@EmptyText(CaKham.Benhchung)</strong>
+                                </div>
+                            </div>
+
+                            <table class="mf-table mt-16">
+                                <thead>
+                                    <tr>
+                                        <th>Nhóm</th>
+                                        <th>Kết quả</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    @foreach (var item in CaKham.ChanDoanTuDongs.OrderBy(x => x.Nhom).ToList())
+                                    {
+                                        <tr>
+                                            <td><strong>@item.Nhom</strong></td>
+                                            <td>@item.KetQua</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+
+                    @if (ActiveTab == "nguta")
+                    {
+                        <div class="doctor-section">
+                            <h2>Ngũ tà</h2>
+
+                            <div class="doctor-nguta-diagram">
+                                <div></div>
+                                <div class="doctor-nguta-node top">@GetNguTaPart(0)</div>
+                                <div></div>
+
+                                <div class="doctor-nguta-node left">@GetNguTaPart(1)</div>
+                                <div class="doctor-nguta-node center">@GetNguTaPart(2)</div>
+                                <div class="doctor-nguta-node right">@GetNguTaPart(3)</div>
+
+                                <div></div>
+                                <div class="doctor-nguta-node bottom">@GetNguTaPart(4)</div>
+                                <div></div>
+                            </div>
+
+                            <table class="mf-table mt-16">
+                                <thead>
+                                    <tr>
+                                        <th>Trái</th>
+                                        <th>Giữa</th>
+                                        <th>Phải</th>
+                                        <th>Kết quả</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    @foreach (var item in CaKham.NguTaTuDongs.OrderBy(x => x.TT).ToList())
+                                    {
+                                        <tr>
+                                            <td>@item.CotTrai</td>
+                                            <td>@item.CotGiua</td>
+                                            <td>@item.CotPhai</td>
+                                            <td>@item.KetQua</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+
+                    @if (ActiveTab == "benhchung")
+                    {
+                        <div class="doctor-section">
+                            <h2>Bệnh chứng</h2>
+
+                            <table class="mf-table">
+                                <thead>
+                                    <tr>
+                                        <th>Bệnh chứng</th>
+                                        <th>Triệu chứng</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    @foreach (var item in CaKham.BenhChungTuDongs.OrderBy(x => x.TenBenhChung).ToList())
+                                    {
+                                        <tr>
+                                            <td><strong>@item.TenBenhChung</strong></td>
+                                            <td class="multi-line">@item.TrieuChung</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+
+                    @if (ActiveTab == "phaptri")
+                    {
+                        <div class="doctor-section">
+                            <h2>Pháp trị</h2>
+
+                            <table class="mf-table">
+                                <thead>
+                                    <tr>
+                                        <th>Bệnh chứng</th>
+                                        <th>Huyệt</th>
+                                        <th>Pháp điều trị</th>
+                                        <th>Phương dược</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    @foreach (var item in CaKham.PhapTriTuDongs.OrderBy(x => x.BenhChung).ToList())
+                                    {
+                                        <tr>
+                                            <td><strong>@item.BenhChung</strong></td>
+                                            <td class="multi-line">@item.Huyet</td>
+                                            <td class="multi-line">@item.PhapDieuTri</td>
+                                            <td class="multi-line">@item.PhuongDuoc</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+
+                    @if (ActiveTab == "donthuoc")
+                    {
+                        <div class="doctor-section">
+                            <div class="doctor-section-head">
+                                <div>
+                                    <h2>Đơn thuốc</h2>
+                                    <p>Danh sách đơn thuốc được kê trong ca khám này.</p>
+                                </div>
+
+                                <button class="mf-btn mf-btn-primary" @onclick="CreatePrescription">
+                                    + Thêm đơn thuốc
+                                </button>
+                            </div>
+
+                            <table class="mf-table">
+                                <thead>
+                                    <tr>
+                                        <th>Đơn thuốc</th>
+                                        <th>Ngày kê</th>
+                                        <th>Tổng tiền</th>
+                                        <th>Trạng thái</th>
+                                        <th>Số dòng thuốc</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    @foreach (var item in CaKham.DonThuocs.ToList())
+                                    {
+                                        <tr>
+                                            <td><strong>@item.ToString()</strong></td>
+                                            <td>@GetPropertyText(item, "NgayKeDon")</td>
+                                            <td>@GetPropertyText(item, "TongTien")</td>
+                                            <td>@GetPropertyText(item, "TrangThai")</td>
+                                            <td>@GetCollectionCount(item, "ChiTietDonThuocs")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+    </main>
+</div>
+
+@code {
+    [Parameter]
+    public int Oid { get; set; }
+
+    private IObjectSpace objectSpace;
+    private Cakham CaKham;
+
+    private string ActiveTab = "thongtin";
+
+    private string Message = "";
+    private string MessageClass = "mf-alert mf-alert-success";
+
+    private List<Benhnhan> DanhSachBenhNhan = new();
+    private List<Nhanvien> DanhSachBacSi = new();
+
+    private string SelectedBenhNhanOid = "";
+    private string SelectedBacSiOid = "";
+
+    private DateTime NgayKham = DateTime.Now;
+    private string LoaiLuotKhamValue = "BenhNhanMoi";
+    private string LoaiCaKhamValue = "TrucTiep";
+    private string TrangThaiValue = "ChoKham";
+
+    private double ChieuCao;
+    private double CanNang;
+    private double NhietDoMoiTruong = 26.3;
+    private string LyDoKham = "";
+
+    private string NgayKhamValue =>
+        NgayKham.ToString("yyyy-MM-ddTHH:mm");
+
+    private string TenCaKham
+    {
+        get
+        {
+            if (BenhNhanHienThi != null)
+            {
+                return
+                    $"{BenhNhanHienThi.HoTen} - "
+                    + $"{NgayKham:dd/MM/yyyy HH:mm}";
+            }
+
+            return
+                $"Chưa chọn bệnh nhân - "
+                + $"{NgayKham:dd/MM/yyyy HH:mm}";
+        }
+    }
+
+    private string ThongTinPhu =>
+        $"Bệnh nhân: {TenBenhNhan} • "
+        + $"Bác sĩ: {TenBacSi} • "
+        + $"Trạng thái: {TrangThaiValue}";
+
+    private Benhnhan BenhNhanHienThi =>
+        GetBenhNhanDangChon() ?? CaKham?.BenhNhan;
+
+    private Nhanvien BacSiHienThi =>
+        GetBacSiDangChon() ?? CaKham?.Bacsi;
+
+    private string TenBenhNhan =>
+        BenhNhanHienThi?.HoTen
+        ?? "Chưa chọn bệnh nhân";
+
+    private string TenBacSi =>
+        BacSiHienThi?.HoTen
+        ?? "Chưa chọn bác sĩ";
+
+    private string TuoiText
+    {
+        get
+        {
+            Benhnhan benhNhan = BenhNhanHienThi;
+
+            if (benhNhan != null)
+            {
+                int tuoi = TinhTuoi(
+                    benhNhan.Ngaysinh
+                );
+
+                return tuoi <= 0
+                    ? "Chưa xác định"
+                    : tuoi.ToString();
+            }
+
+            if (CaKham == null || CaKham.Tuoi <= 0)
+            {
+                return "Chưa xác định";
+            }
+
+            return CaKham.Tuoi.ToString();
+        }
+    }
+
+    private List<CakhamSoDoChiTiet> SoDoChiTren
+    {
+        get
+        {
+            if (CaKham == null)
+            {
+                return new List<CakhamSoDoChiTiet>();
+            }
+
+            return CaKham.SoDoChiTiets
+                .Where(
+                    x => x.NhomChi == NhomChiDo.ChiTren
+                )
+                .OrderBy(x => x.TT)
+                .ToList();
+        }
+    }
+
+    private List<CakhamSoDoChiTiet> SoDoChiDuoi
+    {
+        get
+        {
+            if (CaKham == null)
+            {
+                return new List<CakhamSoDoChiTiet>();
+            }
+
+            return CaKham.SoDoChiTiets
+                .Where(
+                    x => x.NhomChi == NhomChiDo.ChiDuoi
+                )
+                .OrderBy(x => x.TT)
+                .ToList();
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        objectSpace =
+            ObjectSpaceFactory.CreateObjectSpace(
+                typeof(Cakham)
+            );
+    }
+
+    protected override void OnParametersSet()
+    {
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        if (objectSpace == null)
+        {
+            return;
+        }
+
+        objectSpace.Refresh();
+
+        CaKham =
+            objectSpace.GetObjectByKey<Cakham>(Oid);
+
+        DanhSachBenhNhan =
+            objectSpace.GetObjects<Benhnhan>()
+                .OrderBy(x => x.Ten)
+                .ThenBy(x => x.Ho)
+                .ToList();
+
+        DanhSachBacSi =
+            objectSpace.GetObjects<Nhanvien>()
+                .OrderBy(x => x.Ten)
+                .ToList();
+
+        if (CaKham == null)
+        {
+            return;
+        }
+
+        SelectedBenhNhanOid =
+            CaKham.BenhNhan?.Oid.ToString()
+            ?? "";
+
+        SelectedBacSiOid =
+            CaKham.Bacsi?.Oid.ToString()
+            ?? "";
+
+        NgayKham =
+            CaKham.NgayCT == DateTime.MinValue
+                ? DateTime.Now
+                : CaKham.NgayCT;
+
+        LoaiLuotKhamValue =
+            CaKham.LoaiLuotKham.ToString();
+
+        LoaiCaKhamValue =
+            CaKham.LoaiCakham.ToString();
+
+        TrangThaiValue =
+            CaKham.TrangThai.ToString();
+
+        ChieuCao = CaKham.Chieucao;
+        CanNang = CaKham.Cannang;
+
+        NhietDoMoiTruong =
+            CaKham.NhietDoMoiTruong;
+
+        LyDoKham =
+            CaKham.LydoKham ?? "";
+
+        EnsureSoDoDefaults();
+    }
+
+    private void SetTab(string tab)
+    {
+        ActiveTab = tab;
+        Message = "";
+    }
+
+    private string GetTabClass(string tab)
+    {
+        return ActiveTab == tab
+            ? "doctor-tab active"
+            : "doctor-tab";
+    }
+
+    private void OnBenhNhanChanged(
+        ChangeEventArgs e)
+    {
+        SelectedBenhNhanOid =
+            e.Value?.ToString() ?? "";
+
+        Message = "";
+    }
+
+    private void OnBacSiChanged(
+        ChangeEventArgs e)
+    {
+        SelectedBacSiOid =
+            e.Value?.ToString() ?? "";
+
+        Message = "";
+    }
+
+    private void OnNgayKhamChanged(
+        ChangeEventArgs e)
+    {
+        string value =
+            e.Value?.ToString() ?? "";
+
+        if (DateTime.TryParse(
+                value,
+                out DateTime result))
+        {
+            NgayKham = result;
+        }
+
+        Message = "";
+    }
+
+    private bool TrySaveThongTinCaKham(
+        bool hienThongBaoThanhCong)
+    {
+        if (CaKham == null)
+        {
+            MessageClass =
+                "mf-alert mf-alert-danger";
+
+            Message =
+                "Không tìm thấy ca khám hiện tại.";
+
+            ActiveTab = "thongtin";
+            return false;
+        }
+
+        try
+        {
+            if (!int.TryParse(
+                    SelectedBenhNhanOid,
+                    out int benhNhanOid))
+            {
+                MessageClass =
+                    "mf-alert mf-alert-danger";
+
+                Message =
+                    "Vui lòng chọn bệnh nhân.";
+
+                ActiveTab = "thongtin";
+                return false;
+            }
+
+            Benhnhan benhNhan =
+                objectSpace.GetObjectByKey<Benhnhan>(
+                    benhNhanOid
+                );
+
+            if (benhNhan == null)
+            {
+                MessageClass =
+                    "mf-alert mf-alert-danger";
+
+                Message =
+                    "Không tìm thấy bệnh nhân đã chọn.";
+
+                ActiveTab = "thongtin";
+                return false;
+            }
+
+            Nhanvien bacSi = null;
+
+            if (!string.IsNullOrWhiteSpace(
+                    SelectedBacSiOid))
+            {
+                if (!int.TryParse(
+                        SelectedBacSiOid,
+                        out int bacSiOid))
+                {
+                    MessageClass =
+                        "mf-alert mf-alert-danger";
+
+                    Message =
+                        "Thông tin bác sĩ không hợp lệ.";
+
+                    ActiveTab = "thongtin";
+                    return false;
+                }
+
+                bacSi =
+                    objectSpace
+                        .GetObjectByKey<Nhanvien>(
+                            bacSiOid
+                        );
+
+                if (bacSi == null)
+                {
+                    MessageClass =
+                        "mf-alert mf-alert-danger";
+
+                    Message =
+                        "Không tìm thấy bác sĩ đã chọn.";
+
+                    ActiveTab = "thongtin";
+                    return false;
+                }
+            }
+
+            CaKham.BenhNhan = benhNhan;
+            CaKham.Bacsi = bacSi;
+            CaKham.NgayCT = NgayKham;
+
+            CaKham.Tuoi =
+                TinhTuoi(benhNhan.Ngaysinh);
+
+            CaKham.Chieucao = ChieuCao;
+            CaKham.Cannang = CanNang;
+
+            CaKham.NhietDoMoiTruong =
+                NhietDoMoiTruong;
+
+            CaKham.LydoKham = LyDoKham;
+
+            CaKham.LoaiLuotKham =
+                ParseEnum(
+                    LoaiLuotKhamValue,
+                    LoaiLuotKham.BenhNhanMoi
+                );
+
+            CaKham.LoaiCakham =
+                ParseEnum(
+                    LoaiCaKhamValue,
+                    LoaiCaKham.TrucTiep
+                );
+
+            CaKham.TrangThai =
+                ParseEnum(
+                    TrangThaiValue,
+                    TrangThaiCaKham.ChoKham
+                );
+
+            objectSpace.CommitChanges();
+
+            if (hienThongBaoThanhCong)
+            {
+                MessageClass =
+                    "mf-alert mf-alert-success";
+
+                Message =
+                    "Đã lưu thông tin ca khám thành công.";
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            MessageClass =
+                "mf-alert mf-alert-danger";
+
+            Message =
+                "Lỗi khi lưu thông tin ca khám: "
+                + ex.Message;
+
+            ActiveTab = "thongtin";
+            return false;
+        }
+    }
+
+    private void SaveThongTinCaKham()
+    {
+        if (!TrySaveThongTinCaKham(true))
+        {
+            return;
+        }
+
+        LoadData();
+    }
+
+    private void CreatePrescription()
+    {
+        /*
+         * Phải lưu bệnh nhân vào CaKham trước khi
+         * chuyển sang trang thêm đơn thuốc.
+         */
+        if (!TrySaveThongTinCaKham(false))
+        {
+            return;
+        }
+
+        Navigation.NavigateTo(
+            $"/doctor/exams/"
+            + $"{CaKham.Oid}/prescriptions/new"
+        );
+    }
+
+    private void UpdateSoDo(
+        CakhamSoDoChiTiet dong,
+        bool laBenTrai,
+        object rawValue)
+    {
+        if (dong == null)
+        {
+            return;
+        }
+
+        double value =
+            ParseDouble(rawValue?.ToString());
+
+        if (laBenTrai)
+        {
+            dong.Trai = value;
+        }
+        else
+        {
+            dong.Phai = value;
+        }
+
+        CaKham?.DanhDauCanPhanTich();
+        Message = "";
+    }
+
+    private void SaveSoDo()
+    {
+        if (CaKham == null)
+        {
+            return;
+        }
+
+        try
+        {
+            CaKham.DanhDauCanPhanTich();
+
+            objectSpace.CommitChanges();
+
+            MessageClass =
+                "mf-alert mf-alert-success";
+
+            Message =
+                "Đã lưu số đo thành công.";
+        }
+        catch (Exception ex)
+        {
+            MessageClass =
+                "mf-alert mf-alert-danger";
+
+            Message =
+                "Lỗi khi lưu số đo: "
+                + ex.Message;
+        }
+    }
+
+    private void PhanTichSoDo()
+    {
+        if (CaKham == null)
+        {
+            return;
+        }
+
+        try
+        {
+            CaKham.CapNhatPhanTich();
+
+            objectSpace.CommitChanges();
+
+            MessageClass =
+                "mf-alert mf-alert-success";
+
+            Message =
+                "Đã phân tích số đo thành công.";
+
+            ActiveTab = "chandoan";
+        }
+        catch (Exception ex)
+        {
+            MessageClass =
+                "mf-alert mf-alert-danger";
+
+            Message =
+                "Lỗi khi phân tích số đo: "
+                + ex.Message;
+        }
+    }
+
+    private void EnsureSoDoDefaults()
+    {
+        if (CaKham == null)
+        {
+            return;
+        }
+
+        var macDinh = new[]
+        {
+            new
+            {
+                TT = 1,
+                Ten = "Tiểu",
+                Nhom = NhomChiDo.ChiTren
+            },
+            new
+            {
+                TT = 2,
+                Ten = "Tâm",
+                Nhom = NhomChiDo.ChiTren
+            },
+            new
+            {
+                TT = 3,
+                Ten = "Tam",
+                Nhom = NhomChiDo.ChiTren
+            },
+            new
+            {
+                TT = 4,
+                Ten = "Bào",
+                Nhom = NhomChiDo.ChiTren
+            },
+            new
+            {
+                TT = 5,
+                Ten = "Đại",
+                Nhom = NhomChiDo.ChiTren
+            },
+            new
+            {
+                TT = 6,
+                Ten = "Phế",
+                Nhom = NhomChiDo.ChiTren
+            },
+            new
+            {
+                TT = 7,
+                Ten = "Bàng",
+                Nhom = NhomChiDo.ChiDuoi
+            },
+            new
+            {
+                TT = 8,
+                Ten = "Thận",
+                Nhom = NhomChiDo.ChiDuoi
+            },
+            new
+            {
+                TT = 9,
+                Ten = "Đảm",
+                Nhom = NhomChiDo.ChiDuoi
+            },
+            new
+            {
+                TT = 10,
+                Ten = "Vị",
+                Nhom = NhomChiDo.ChiDuoi
+            },
+            new
+            {
+                TT = 11,
+                Ten = "Can",
+                Nhom = NhomChiDo.ChiDuoi
+            },
+            new
+            {
+                TT = 12,
+                Ten = "Tỳ",
+                Nhom = NhomChiDo.ChiDuoi
+            }
+        };
+
+        bool changed = false;
+
+        foreach (var item in macDinh)
+        {
+            CakhamSoDoChiTiet dong =
+                CaKham.SoDoChiTiets
+                    .FirstOrDefault(
+                        x => x.TinhHuyet == item.Ten
+                    );
+
+            if (dong == null)
+            {
+                dong =
+                    objectSpace
+                        .CreateObject<CakhamSoDoChiTiet>();
+
+                dong.Cakham = CaKham;
+                dong.TinhHuyet = item.Ten;
+
+                changed = true;
+            }
+
+            if (dong.TT != item.TT)
+            {
+                dong.TT = item.TT;
+                changed = true;
+            }
+
+            if (dong.NhomChi != item.Nhom)
+            {
+                dong.NhomChi = item.Nhom;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            objectSpace.CommitChanges();
+        }
+    }
+
+    private TEnum ParseEnum<TEnum>(
+        string value,
+        TEnum defaultValue)
+        where TEnum : struct
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return defaultValue;
+        }
+
+        if (Enum.TryParse(
+                value,
+                true,
+                out TEnum result))
+        {
+            return result;
+        }
+
+        return defaultValue;
+    }
+
+    private Benhnhan GetBenhNhanDangChon()
+    {
+        if (!int.TryParse(
+                SelectedBenhNhanOid,
+                out int oid))
+        {
+            return null;
+        }
+
+        return DanhSachBenhNhan
+            .FirstOrDefault(x => x.Oid == oid);
+    }
+
+    private Nhanvien GetBacSiDangChon()
+    {
+        if (!int.TryParse(
+                SelectedBacSiOid,
+                out int oid))
+        {
+            return null;
+        }
+
+        return DanhSachBacSi
+            .FirstOrDefault(x => x.Oid == oid);
+    }
+
+    private int TinhTuoi(DateTime ngaySinh)
+    {
+        if (ngaySinh == DateTime.MinValue)
+        {
+            return 0;
+        }
+
+        int tuoi =
+            DateTime.Today.Year - ngaySinh.Year;
+
+        if (ngaySinh.Date >
+            DateTime.Today.AddYears(-tuoi))
+        {
+            tuoi--;
+        }
+
+        return tuoi < 0 ? 0 : tuoi;
+    }
+
+    private double ParseDouble(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return 0;
+        }
+
+        text =
+            text.Trim().Replace(",", ".");
+
+        if (double.TryParse(
+                text,
+                NumberStyles.Any,
+                CultureInfo.InvariantCulture,
+                out double value))
+        {
+            return value;
+        }
+
+        return 0;
+    }
+
+    private string FormatInputValue(double value)
+    {
+        if (value <= 0)
+        {
+            return "";
+        }
+
+        return value.ToString(
+            "0.##",
+            CultureInfo.InvariantCulture
+        );
+    }
+
+    private string FormatDouble(double value)
+    {
+        return value.ToString(
+            "0.##",
+            CultureInfo.InvariantCulture
+        );
+    }
+
+    private string EmptyText(string value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? "Chưa có dữ liệu"
+            : value;
+    }
+
+    private string GetDanhGiaClass(string value)
+    {
+        if (value == "+")
+        {
+            return "measure-badge plus";
+        }
+
+        if (value == "-")
+        {
+            return "measure-badge minus";
+        }
+
+        if (value == "0")
+        {
+            return "measure-badge zero";
+        }
+
+        return "measure-badge empty";
+    }
+
+    private string GetNguTaPart(int index)
+    {
+        if (CaKham == null)
+        {
+            return "";
+        }
+
+        string raw =
+            CaKham.NguTaSoDo ?? "";
+
+        string[] parts =
+            raw.Split('|');
+
+        if (parts.Length <= index)
+        {
+            return "";
+        }
+
+        return parts[index];
+    }
+
+    private string GetPropertyText(
+        object obj,
+        string propertyName)
+    {
+        if (obj == null)
+        {
+            return "--";
+        }
+
+        PropertyInfo prop =
+            obj.GetType()
+                .GetProperty(propertyName);
+
+        if (prop == null)
+        {
+            return "--";
+        }
+
+        object value =
+            prop.GetValue(obj);
+
+        if (value == null)
+        {
+            return "--";
+        }
+
+        if (value is DateTime date)
+        {
+            return date == DateTime.MinValue
+                ? "--"
+                : date.ToString(
+                    "dd/MM/yyyy HH:mm"
+                );
+        }
+
+        if (value is decimal money)
+        {
+            return money.ToString("n0");
+        }
+
+        return value.ToString();
+    }
+
+    private int GetCollectionCount(
+        object obj,
+        string propertyName)
+    {
+        if (obj == null)
+        {
+            return 0;
+        }
+
+        PropertyInfo prop =
+            obj.GetType()
+                .GetProperty(propertyName);
+
+        if (prop == null)
+        {
+            return 0;
+        }
+
+        object value =
+            prop.GetValue(obj);
+
+        if (value is ICollection collection)
+        {
+            return collection.Count;
+        }
+
+        if (value is IEnumerable enumerable)
+        {
+            int count = 0;
+
+            foreach (object item in enumerable)
+            {
+                count++;
+            }
+
+            return count;
+        }
+
+        return 0;
+    }
+
+    private string GetInitials(string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+        {
+            return "BS";
+        }
+
+        string[] parts =
+            fullName.Split(
+                ' ',
+                StringSplitOptions.RemoveEmptyEntries
+            );
+
+        if (parts.Length == 1)
+        {
+            return parts[0]
+                .Substring(
+                    0,
+                    Math.Min(2, parts[0].Length)
+                )
+                .ToUpperInvariant();
+        }
+
+        return
+            $"{parts[0][0]}{parts[^1][0]}"
+                .ToUpperInvariant();
+    }
+
+    private void GoPatients()
+    {
+        Navigation.NavigateTo(
+            "/doctor/patients"
+        );
+    }
+
+    private void GoExams()
+    {
+        Navigation.NavigateTo(
+            "/doctor/exams"
+        );
+    }
+
+    private void GoDiseases()
+    {
+        Navigation.NavigateTo(
+            "/doctor/diseases"
+        );
+    }
+
+    private void GoAcupoints()
+    {
+        Navigation.NavigateTo(
+            "/doctor/acupoints"
+        );
+    }
+
+    private void GoDiagnosisRules()
+    {
+        Navigation.NavigateTo(
+            "/doctor/diagnosis-rules"
+        );
+    }
+
+    private void GoTreatmentPlans()
+    {
+        Navigation.NavigateTo(
+            "/doctor/treatment-plans"
+        );
+    }
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+}

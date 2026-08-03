@@ -1,0 +1,1021 @@
+﻿@page "/staff/prescriptions/{Oid:int}"
+@page "/staff/exports/{Oid:int}"
+
+@using DevExpress.ExpressApp
+@using Microsoft.AspNetCore.Components.Authorization
+@using ybaso.Module.BusinessObjects
+@implements IDisposable
+
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject INonSecuredObjectSpaceFactory NonSecuredObjectSpaceFactory
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<div class="staff-page">
+    <StaffSidebar ActiveMenu="exports" />
+
+    <main class="staff-main">
+        <header class="mf-topbar">
+            <div>
+                <h1>Xử lý phiếu xuất kho</h1>
+                <p>Kiểm tra thuốc, số lượng, cách dùng và xác nhận thanh toán cho bệnh nhân.</p>
+            </div>
+
+            <div class="mf-actions">
+                <button class="mf-btn mf-btn-outline"
+                        type="button"
+                        @onclick="GoExports">
+                    ← Quay lại
+                </button>
+
+                @if (DonThuoc != null && IsChuaXuat(DonThuoc))
+                {
+                    <button class="mf-btn mf-btn-primary"
+                            type="button"
+                            @onclick="OpenCheckout">
+                        🧾 Thanh toán &amp; xuất thuốc
+                    </button>
+                }
+                else if (HoaDonDaCo != null)
+                {
+                    <button class="mf-btn mf-btn-primary"
+                            type="button"
+                            @onclick="OpenExistingInvoice">
+                        🧾 Xem hóa đơn
+                    </button>
+                }
+            </div>
+        </header>
+
+        @if (!string.IsNullOrWhiteSpace(Message))
+        {
+            <div class="@MessageClass">
+                @Message
+            </div>
+        }
+
+        @if (DonThuoc == null)
+        {
+            <section class="mf-card">
+                <div class="mf-empty">
+                    Không tìm thấy đơn thuốc.
+                </div>
+            </section>
+        }
+        else
+        {
+            <section class="staff-prescription-layout">
+                <div class="staff-prescription-main">
+                    <section class="staff-form-card">
+                        <div class="staff-form-header">
+                            <div class="staff-form-avatar">
+                                @GetInitials(TenBenhNhan)
+                            </div>
+
+                            <div>
+                                <h2>@TenBenhNhan</h2>
+                                <p>@DienThoaiBenhNhan • @FormatDateTime(DonThuoc.NgayKeDon)</p>
+                            </div>
+                        </div>
+
+                        <div class="staff-prescription-info-grid">
+                            <div class="staff-info-box">
+                                <span>Mã đơn thuốc</span>
+                                <strong>DT-@DonThuoc.Oid.ToString("0000")</strong>
+                            </div>
+
+                            <div class="staff-info-box">
+                                <span>Ca khám</span>
+                                <strong>@TenCaKham</strong>
+                            </div>
+
+                            <div class="staff-info-box">
+                                <span>Trạng thái</span>
+                                <strong>
+                                    <span class="@GetStatusClass(DonThuoc)">
+                                        @DonThuoc.TrangThai
+                                    </span>
+                                </strong>
+                            </div>
+
+                            <div class="staff-info-box">
+                                <span>Tổng tiền</span>
+                                <strong>@FormatMoney(TongTienTinhLai)</strong>
+                            </div>
+                        </div>
+
+                        <div class="staff-text-block mt-16">
+                            <label>Chẩn đoán</label>
+                            <p>@EmptyText(DonThuoc.ChanDoan)</p>
+                        </div>
+
+                        <div class="staff-text-block mt-16">
+                            <label>Ghi chú</label>
+                            <p>@EmptyText(DonThuoc.GhiChu)</p>
+                        </div>
+                    </section>
+
+                    <section class="mf-card mt-16">
+                        <div class="mf-card-head">
+                            <div>
+                                <h2>Chi tiết thuốc</h2>
+                                <p>Danh sách thuốc/dược liệu bác sĩ đã kê cho bệnh nhân.</p>
+                            </div>
+                        </div>
+
+                        <div class="pos-table-scroll">
+                            <table class="mf-table">
+                                <thead>
+                                    <tr>
+                                        <th>Thuốc/Dược liệu</th>
+                                        <th>Đơn vị</th>
+                                        <th>Số lượng</th>
+                                        <th>Đơn giá</th>
+                                        <th>Thành tiền</th>
+                                        <th>Cách dùng</th>
+                                        <th>Ghi chú</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    @foreach (var item in ChiTietDonThuoc)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <div class="staff-cell-main">
+                                                    <div class="staff-circle">T</div>
+                                                    <div>
+                                                        <strong>@GetTenThuoc(item)</strong>
+                                                        <small>Tồn: @GetTonThuoc(item)</small>
+                                                    </div>
+                                                </div>
+                                            </td>
+
+                                            <td>@GetDonViTinh(item)</td>
+                                            <td>@item.SoLuong</td>
+                                            <td>@FormatMoney(ToDecimal(item.DonGia))</td>
+                                            <td>
+                                                <strong>@FormatMoney(GetThanhTien(item))</strong>
+                                            </td>
+                                            <td>@EmptyText(item.LieuDung)</td>
+                                            <td>@EmptyText(item.GhiChu)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        @if (!ChiTietDonThuoc.Any())
+                        {
+                            <div class="mf-empty">
+                                Đơn thuốc này chưa có dòng thuốc.
+                            </div>
+                        }
+                    </section>
+                </div>
+
+                <aside class="staff-prescription-side">
+                    <section class="staff-form-card">
+                        <div class="staff-section-head-simple">
+                            <h2>Tóm tắt xuất thuốc</h2>
+                            <p>Kiểm tra kỹ thông tin trước khi thanh toán và xuất thuốc.</p>
+                        </div>
+
+                        <div class="staff-info-list">
+                            <div>
+                                <span>Bệnh nhân</span>
+                                <strong>@TenBenhNhan</strong>
+                            </div>
+
+                            <div>
+                                <span>Số dòng thuốc</span>
+                                <strong>@ChiTietDonThuoc.Count</strong>
+                            </div>
+
+                            <div>
+                                <span>Tổng số lượng</span>
+                                <strong>@TongSoLuong</strong>
+                            </div>
+
+                            <div>
+                                <span>Tổng tiền</span>
+                                <strong>@FormatMoney(TongTienTinhLai)</strong>
+                            </div>
+
+                            <div>
+                                <span>Trạng thái</span>
+                                <strong>@DonThuoc.TrangThai</strong>
+                            </div>
+                        </div>
+
+                        @if (IsChuaXuat(DonThuoc))
+                        {
+                            <div class="staff-export-box">
+                                <p>
+                                    Hệ thống sẽ mở màn hình thanh toán, tạo hóa đơn và chỉ trừ tồn kho sau khi bạn xác nhận.
+                                </p>
+
+                                <button class="mf-btn mf-btn-primary staff-full-btn"
+                                        type="button"
+                                        @onclick="OpenCheckout">
+                                    🧾 Xác nhận xuất thuốc
+                                </button>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="staff-export-done">
+                                ✅ Đơn thuốc này đã được xử lý.
+                            </div>
+
+                            @if (HoaDonDaCo != null)
+                            {
+                                <button class="mf-btn mf-btn-outline staff-full-btn mt-16"
+                                        type="button"
+                                        @onclick="OpenExistingInvoice">
+                                    Xem lại hóa đơn
+                                </button>
+                            }
+                        }
+                    </section>
+                </aside>
+            </section>
+        }
+    </main>
+</div>
+
+@if (ShowCheckoutModal)
+{
+    <div class="pos-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="pos-modal-title">
+        <div class="pos-modal-shell">
+            <header class="pos-modal-header">
+                <div>
+                    <span class="pos-kicker">NATCare POS</span>
+                    <h2 id="pos-modal-title">
+                        @(PaymentCompleted ? "Hóa đơn thanh toán" : "Thanh toán đơn thuốc")
+                    </h2>
+                    <p>
+                        @(PaymentCompleted
+                            ? "Hóa đơn đã được lưu và kho đã được cập nhật."
+                            : "Kiểm tra hóa đơn và chọn phương thức thanh toán trước khi xuất kho.")
+                    </p>
+                </div>
+
+                <button class="pos-close-button"
+                        type="button"
+                        title="Đóng"
+                        @onclick="CloseCheckout">
+                    ×
+                </button>
+            </header>
+
+            @if (!string.IsNullOrWhiteSpace(CheckoutError))
+            {
+                <div class="pos-checkout-error">
+                    @CheckoutError
+                </div>
+            }
+
+            @if (!PaymentCompleted)
+            {
+                <div class="pos-checkout-grid">
+                    <section class="pos-receipt-card">
+                        <div class="pos-receipt-brand">
+                            <div class="pos-brand-mark">N</div>
+                            <div>
+                                <strong>NATCare</strong>
+                                <span>Y học cổ truyền</span>
+                            </div>
+                        </div>
+
+                        <div class="pos-receipt-meta">
+                            <div>
+                                <span>Khách hàng</span>
+                                <strong>@TenBenhNhan</strong>
+                            </div>
+                            <div>
+                                <span>Đơn thuốc</span>
+                                <strong>DT-@(DonThuoc?.Oid.ToString("0000") ?? "----")</strong>
+                            </div>
+                            <div>
+                                <span>Thời gian</span>
+                                <strong>@DateTime.Now.ToString("dd/MM/yyyy HH:mm")</strong>
+                            </div>
+                            <div>
+                                <span>Thu ngân</span>
+                                <strong>@CurrentUserName</strong>
+                            </div>
+                        </div>
+
+                        <div class="pos-items">
+                            <div class="pos-item pos-item-heading">
+                                <span>Sản phẩm</span>
+                                <span>SL</span>
+                                <span>Thành tiền</span>
+                            </div>
+
+                            @foreach (var item in ChiTietDonThuoc)
+                            {
+                                <div class="pos-item">
+                                    <div>
+                                        <strong>@GetTenThuoc(item)</strong>
+                                        <small>@FormatMoney(ToDecimal(item.DonGia)) / @GetDonViTinh(item)</small>
+                                    </div>
+                                    <span>@ToDecimal(item.SoLuong).ToString("n0")</span>
+                                    <strong>@FormatMoney(GetThanhTien(item))</strong>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="pos-totals">
+                            <div>
+                                <span>Tạm tính</span>
+                                <strong>@FormatMoney(TongTienTinhLai)</strong>
+                            </div>
+                            <div>
+                                <span>Giảm giá</span>
+                                <strong>-@FormatMoney(GiamGiaThanhToan)</strong>
+                            </div>
+                            <div class="pos-grand-total">
+                                <span>Khách cần trả</span>
+                                <strong>@FormatMoney(TongThanhToanTamTinh)</strong>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="pos-payment-card">
+                        <div class="pos-section-title">
+                            <h3>Phương thức thanh toán</h3>
+                            <p>Chọn một hình thức phù hợp với khách hàng.</p>
+                        </div>
+
+                        <div class="pos-payment-methods">
+                            <button type="button"
+                                    class="@GetPaymentButtonClass(HinhThucThanhToanHoaDon.TienMat)"
+                                    @onclick="() => SelectPaymentMethod(HinhThucThanhToanHoaDon.TienMat)">
+                                <span class="pos-payment-icon">💵</span>
+                                <span>
+                                    <strong>Tiền mặt</strong>
+                                    <small>Nhận tiền tại quầy</small>
+                                </span>
+                                <span class="pos-payment-check">✓</span>
+                            </button>
+
+                            <button type="button"
+                                    class="@GetPaymentButtonClass(HinhThucThanhToanHoaDon.ChuyenKhoan)"
+                                    @onclick="() => SelectPaymentMethod(HinhThucThanhToanHoaDon.ChuyenKhoan)">
+                                <span class="pos-payment-icon">🏦</span>
+                                <span>
+                                    <strong>Chuyển khoản</strong>
+                                    <small>Ngân hàng hoặc QR</small>
+                                </span>
+                                <span class="pos-payment-check">✓</span>
+                            </button>
+
+                            <button type="button"
+                                    class="@GetPaymentButtonClass(HinhThucThanhToanHoaDon.Khac)"
+                                    @onclick="() => SelectPaymentMethod(HinhThucThanhToanHoaDon.Khac)">
+                                <span class="pos-payment-icon">💳</span>
+                                <span>
+                                    <strong>Thẻ / Khác</strong>
+                                    <small>POS hoặc phương thức khác</small>
+                                </span>
+                                <span class="pos-payment-check">✓</span>
+                            </button>
+                        </div>
+
+                        <div class="pos-payment-form">
+                            <label>
+                                <span>Giảm giá</span>
+                                <InputNumber class="pos-money-input"
+                                             min="0"
+                                             step="1000"
+                                             @bind-Value="GiamGiaThanhToan" />
+                            </label>
+
+                            @if (SelectedPaymentMethod == HinhThucThanhToanHoaDon.TienMat)
+                            {
+                                <label>
+                                    <span>Tiền khách đưa</span>
+                                    <InputNumber class="pos-money-input pos-money-input-highlight"
+                                                 min="0"
+                                                 step="1000"
+                                                 @bind-Value="TienKhachDua" />
+                                </label>
+
+                                <div class="pos-change-box">
+                                    <span>Tiền thừa trả khách</span>
+                                    <strong>@FormatMoney(TienThua)</strong>
+                                </div>
+                            }
+                            else
+                            {
+                                <label>
+                                    <span>Mã giao dịch / ghi chú</span>
+                                    <input class="pos-text-input"
+                                           type="text"
+                                           placeholder="Không bắt buộc"
+                                           @bind="MaGiaoDich" />
+                                </label>
+                            }
+                        </div>
+
+                        <div class="pos-pay-summary">
+                            <span>Tổng thanh toán</span>
+                            <strong>@FormatMoney(TongThanhToanTamTinh)</strong>
+                        </div>
+
+                        <div class="pos-modal-actions">
+                            <button class="mf-btn mf-btn-outline"
+                                    type="button"
+                                    disabled="@IsProcessingPayment"
+                                    @onclick="CloseCheckout">
+                                Hủy
+                            </button>
+
+                            <button class="mf-btn mf-btn-primary pos-confirm-button"
+                                    type="button"
+                                    disabled="@IsProcessingPayment"
+                                    @onclick="ConfirmPaymentAndExport">
+                                @(IsProcessingPayment
+                                    ? "Đang xử lý..."
+                                    : "Xác nhận thanh toán & xuất kho")
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            }
+            else
+            {
+                <div class="pos-success-layout">
+                    <section class="pos-payment-success">
+                        <div class="pos-success-icon">✓</div>
+                        <span>THANH TOÁN THÀNH CÔNG</span>
+                        <h3>@FormatMoney(HoaDonHienTai?.TongThanhToan ?? TongThanhToanTamTinh)</h3>
+                        <p>Hóa đơn đã được tạo và tồn kho đã được trừ tự động.</p>
+                    </section>
+
+                    <section class="pos-final-receipt" id="natcare-print-invoice">
+                        <div class="pos-final-brand">
+                            <div>
+                                <strong>NATCare</strong>
+                                <span>Y HỌC CỔ TRUYỀN</span>
+                            </div>
+                            <span class="pos-paid-badge">ĐÃ THANH TOÁN</span>
+                        </div>
+
+                        <div class="pos-final-title">
+                            <h3>HÓA ĐƠN BÁN HÀNG</h3>
+                            <p>Mã hóa đơn: <strong>@(HoaDonHienTai?.MaHoaDon ?? "--")</strong></p>
+                        </div>
+
+                        <div class="pos-final-info">
+                            <div><span>Khách hàng</span><strong>@TenBenhNhan</strong></div>
+                            <div><span>Điện thoại</span><strong>@DienThoaiBenhNhan</strong></div>
+                            <div><span>Ngày thanh toán</span><strong>@FormatNullableDateTime(HoaDonHienTai?.NgayThanhToan)</strong></div>
+                            <div><span>Thu ngân</span><strong>@(HoaDonHienTai?.NhanVienLap?.HoTen ?? CurrentUserName)</strong></div>
+                        </div>
+
+                        <div class="pos-final-items">
+                            <div class="pos-final-row pos-final-heading">
+                                <span>Tên hàng</span>
+                                <span>SL</span>
+                                <span>Đơn giá</span>
+                                <span>Thành tiền</span>
+                            </div>
+
+                            @foreach (var item in ChiTietHoaDonHienTai)
+                            {
+                                <div class="pos-final-row">
+                                    <span>@(item.Thuoc?.TenThuoc ?? "Thuốc")</span>
+                                    <span>@item.SoLuong.ToString("n0")</span>
+                                    <span>@FormatMoney(item.DonGia)</span>
+                                    <strong>@FormatMoney(item.ThanhTien)</strong>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="pos-final-totals">
+                            <div><span>Tiền thuốc</span><strong>@FormatMoney(HoaDonHienTai?.TongTienThuoc ?? 0)</strong></div>
+                            <div><span>Giảm giá</span><strong>-@FormatMoney(HoaDonHienTai?.GiamGia ?? 0)</strong></div>
+                            <div class="pos-final-grand"><span>TỔNG CỘNG</span><strong>@FormatMoney(HoaDonHienTai?.TongThanhToan ?? 0)</strong></div>
+                            <div><span>Thanh toán</span><strong>@GetPaymentMethodLabel(HoaDonHienTai?.HinhThucThanhToan ?? SelectedPaymentMethod)</strong></div>
+                            @if (SelectedPaymentMethod == HinhThucThanhToanHoaDon.TienMat)
+                            {
+                                <div><span>Khách đưa</span><strong>@FormatMoney(TienKhachDua)</strong></div>
+                                <div><span>Tiền thừa</span><strong>@FormatMoney(TienThua)</strong></div>
+                            }
+                        </div>
+
+                        <div class="pos-final-footer">
+                            Cảm ơn quý khách. Chúc quý khách nhiều sức khỏe!
+                        </div>
+                    </section>
+
+                    <div class="pos-success-actions">
+                        <button class="mf-btn mf-btn-outline"
+                                type="button"
+                                onclick="window.print()">
+                            🖨 In hóa đơn
+                        </button>
+
+                        <button class="mf-btn mf-btn-primary"
+                                type="button"
+                                @onclick="CloseCheckoutAndReturn">
+                            Hoàn tất
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int Oid { get; set; }
+
+    private IObjectSpace objectSpace;
+
+    private DonThuoc DonThuoc;
+    private List<ChiTietDonThuoc> ChiTietDonThuoc = new();
+    private HoaDonBenhNhan HoaDonDaCo;
+    private HoaDonBenhNhan HoaDonHienTai;
+    private List<ChiTietHoaDonBenhNhan> ChiTietHoaDonHienTai = new();
+
+    private string CurrentUserName = "Nhân viên";
+    private string Message = "";
+    private string MessageClass = "mf-alert mf-alert-success";
+
+    private bool ShowCheckoutModal;
+    private bool PaymentCompleted;
+    private bool IsProcessingPayment;
+    private string CheckoutError = "";
+    private string MaGiaoDich = "";
+    private decimal GiamGiaThanhToan;
+    private decimal TienKhachDua;
+    private HinhThucThanhToanHoaDon SelectedPaymentMethod = HinhThucThanhToanHoaDon.TienMat;
+
+    private string TenBenhNhan => DonThuoc?.Ca?.BenhNhan?.HoTen ?? DonThuoc?.BenhNhan?.HoTen ?? "Chưa có bệnh nhân";
+    private string DienThoaiBenhNhan => DonThuoc?.Ca?.BenhNhan?.Dienthoai ?? DonThuoc?.BenhNhan?.Dienthoai ?? "Chưa có SĐT";
+
+    private string TenCaKham
+    {
+        get
+        {
+            if (DonThuoc?.Ca == null)
+                return "Chưa gắn ca khám";
+
+            return $"{DonThuoc.Ca.BenhNhan?.HoTen ?? "Chưa chọn bệnh nhân"} - {DonThuoc.Ca.NgayCT:dd/MM/yyyy}";
+        }
+    }
+
+    private decimal TongTienTinhLai => ChiTietDonThuoc.Sum(GetThanhTien);
+    private decimal TongSoLuong => ChiTietDonThuoc.Sum(x => ToDecimal(x.SoLuong));
+    private decimal TongThanhToanTamTinh => Math.Max(0, TongTienTinhLai - Math.Max(0, GiamGiaThanhToan));
+    private decimal TienThua => SelectedPaymentMethod == HinhThucThanhToanHoaDon.TienMat
+        ? Math.Max(0, TienKhachDua - TongThanhToanTamTinh)
+        : 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        objectSpace = ObjectSpaceFactory.CreateObjectSpace(typeof(DonThuoc));
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        CurrentUserName = authState.User?.Identity?.Name ?? "Nhân viên";
+
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        DonThuoc = objectSpace.GetObjectByKey<DonThuoc>(Oid);
+
+        if (DonThuoc == null)
+            return;
+
+        ChiTietDonThuoc = objectSpace.GetObjects<ChiTietDonThuoc>()
+            .Where(x => x.DonThuoc != null && x.DonThuoc.Oid == DonThuoc.Oid)
+            .ToList();
+
+        HoaDonDaCo = objectSpace.GetObjects<HoaDonBenhNhan>()
+            .FirstOrDefault(x => x.DonThuoc != null && x.DonThuoc.Oid == DonThuoc.Oid);
+    }
+
+    private void OpenCheckout()
+    {
+        CheckoutError = "";
+        PaymentCompleted = false;
+        HoaDonHienTai = null;
+        ChiTietHoaDonHienTai.Clear();
+
+        if (!ValidatePrescriptionForCheckout())
+            return;
+
+        SelectedPaymentMethod = HinhThucThanhToanHoaDon.TienMat;
+        GiamGiaThanhToan = 0;
+        TienKhachDua = Math.Round(TongTienTinhLai, 0);
+        MaGiaoDich = "";
+        ShowCheckoutModal = true;
+    }
+
+    private void OpenExistingInvoice()
+    {
+        if (HoaDonDaCo == null)
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Chưa tìm thấy hóa đơn của đơn thuốc này.";
+            return;
+        }
+
+        HoaDonHienTai = HoaDonDaCo;
+        ChiTietHoaDonHienTai = HoaDonHienTai.ChiTietHoaDons
+            .Where(x => !x.IsDeleted)
+            .ToList();
+        SelectedPaymentMethod = HoaDonHienTai.HinhThucThanhToan;
+        TienKhachDua = HoaDonHienTai.TongThanhToan;
+        PaymentCompleted = true;
+        CheckoutError = "";
+        ShowCheckoutModal = true;
+    }
+
+    private bool ValidatePrescriptionForCheckout()
+    {
+        if (DonThuoc == null)
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Không tìm thấy đơn thuốc để xuất.";
+            return false;
+        }
+
+        if (!IsChuaXuat(DonThuoc))
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Đơn thuốc này đã được xuất trước đó.";
+            return false;
+        }
+
+        if (!ChiTietDonThuoc.Any())
+        {
+            MessageClass = "mf-alert mf-alert-danger";
+            Message = "Đơn thuốc chưa có dòng thuốc, không thể xuất.";
+            return false;
+        }
+
+        foreach (var item in ChiTietDonThuoc)
+        {
+            if (item.Thuoc == null)
+            {
+                MessageClass = "mf-alert mf-alert-danger";
+                Message = "Có dòng đơn thuốc chưa chọn thuốc.";
+                return false;
+            }
+
+            decimal tonKho = ToDecimal(item.Thuoc.SoLuongTon);
+            decimal soLuongXuat = ToDecimal(item.SoLuong);
+
+            if (tonKho < soLuongXuat)
+            {
+                MessageClass = "mf-alert mf-alert-danger";
+                Message = $"Thuốc {item.Thuoc.TenThuoc} không đủ tồn kho. Tồn: {tonKho:n0}, cần: {soLuongXuat:n0}.";
+                return false;
+            }
+        }
+
+        Message = "";
+        return true;
+    }
+
+    private void SelectPaymentMethod(HinhThucThanhToanHoaDon method)
+    {
+        SelectedPaymentMethod = method;
+        CheckoutError = "";
+
+        if (method == HinhThucThanhToanHoaDon.TienMat && TienKhachDua < TongThanhToanTamTinh)
+            TienKhachDua = Math.Round(TongThanhToanTamTinh, 0);
+    }
+
+    private async Task ConfirmPaymentAndExport()
+    {
+        if (IsProcessingPayment)
+            return;
+
+        CheckoutError = "";
+
+        if (GiamGiaThanhToan < 0)
+        {
+            CheckoutError = "Giảm giá không được nhỏ hơn 0.";
+            return;
+        }
+
+        if (GiamGiaThanhToan > TongTienTinhLai)
+        {
+            CheckoutError = "Giảm giá không được lớn hơn tổng tiền đơn thuốc.";
+            return;
+        }
+
+        if (SelectedPaymentMethod == HinhThucThanhToanHoaDon.TienMat && TienKhachDua < TongThanhToanTamTinh)
+        {
+            CheckoutError = $"Tiền khách đưa còn thiếu {FormatMoney(TongThanhToanTamTinh - TienKhachDua)}.";
+            return;
+        }
+
+        if (!ValidatePrescriptionForCheckout())
+        {
+            CheckoutError = Message;
+            Message = "";
+            return;
+        }
+
+        IsProcessingPayment = true;
+
+        try
+        {
+            Nhanvien currentEmployee = FindCurrentEmployee();
+
+            PhieuXuatKho phieuXuat = objectSpace.GetObjects<PhieuXuatKho>()
+                .FirstOrDefault(x =>
+                    x.DonThuoc != null &&
+                    x.DonThuoc.Oid == DonThuoc.Oid &&
+                    x.TrangThai != TrangThaiPhieuXuatKho.Huy);
+
+            if (phieuXuat == null)
+            {
+                if (currentEmployee == null)
+                {
+                    throw new UserFriendlyException(
+                        $"Không tìm thấy hồ sơ nhân viên gắn với tài khoản '{CurrentUserName}'. " +
+                        "Hãy kiểm tra Quản trị → Nhân viên → Tài khoản đăng nhập, " +
+                        "sau đó đăng xuất và đăng nhập lại.");
+                }
+
+                phieuXuat = objectSpace.CreateObject<PhieuXuatKho>();
+                phieuXuat.NhanVien = currentEmployee;
+                phieuXuat.BenhNhan = DonThuoc.BenhNhan ?? DonThuoc.Ca?.BenhNhan;
+                phieuXuat.DonThuoc = DonThuoc;
+            }
+            else if (phieuXuat.NhanVien == null)
+            {
+                if (currentEmployee == null)
+                    throw new UserFriendlyException("Phiếu xuất chưa có nhân viên phụ trách.");
+
+                phieuXuat.NhanVien = currentEmployee;
+            }
+
+            phieuXuat.NgayXuat = DateTime.Now;
+            phieuXuat.HinhThucThanhToan = SelectedPaymentMethod;
+            phieuXuat.TienKham = 0;
+            phieuXuat.GiamGia = GiamGiaThanhToan;
+            phieuXuat.GhiChu = BuildPaymentNote();
+            phieuXuat.XacNhanXuatKho();
+
+            if (phieuXuat.HoaDon == null)
+                throw new UserFriendlyException("Không thể tạo hóa đơn từ phiếu xuất kho.");
+
+            phieuXuat.HoaDon.GhiChu = BuildPaymentNote();
+            objectSpace.CommitChanges();
+
+            HoaDonHienTai = phieuXuat.HoaDon;
+            ChiTietHoaDonHienTai = HoaDonHienTai.ChiTietHoaDons
+                .Where(x => !x.IsDeleted)
+                .ToList();
+            HoaDonDaCo = HoaDonHienTai;
+            PaymentCompleted = true;
+
+            LoadData();
+
+            MessageClass = "mf-alert mf-alert-success";
+            Message = $"Đã xuất thuốc và tạo hóa đơn {HoaDonHienTai.MaHoaDon} thành công.";
+        }
+        catch (Exception ex)
+        {
+            objectSpace.Rollback();
+            LoadData();
+            CheckoutError = "Không thể thanh toán và xuất kho: " + ex.Message;
+        }
+        finally
+        {
+            IsProcessingPayment = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private Nhanvien FindCurrentEmployee()
+    {
+        string userName = CurrentUserName?.Trim();
+
+        if (string.IsNullOrWhiteSpace(userName))
+            return null;
+
+        object employeeKey;
+
+        /*
+         * ObjectSpace của trang là ObjectSpace có bảo mật.
+         * Role Nhân viên có thể đọc Nhanvien nhưng không được đọc đầy đủ
+         * ApplicationUser, nên TaiKhoanDangNhap.UserName có thể bị che và
+         * phép tìm kiếm cũ luôn trả về null.
+         *
+         * Chỉ dùng ObjectSpace không bảo mật để xác định khóa của hồ sơ
+         * nhân viên tương ứng với tài khoản đang đăng nhập. Không dùng nó
+         * để tạo hóa đơn hay cập nhật kho.
+         */
+        using (IObjectSpace lookupObjectSpace =
+            NonSecuredObjectSpaceFactory.CreateNonSecuredObjectSpace(typeof(Nhanvien)))
+        {
+            List<Nhanvien> employees = lookupObjectSpace
+                .GetObjects<Nhanvien>()
+                .ToList();
+
+            Nhanvien matchedEmployee = employees.FirstOrDefault(x =>
+                x.TaiKhoanDangNhap != null &&
+                !string.IsNullOrWhiteSpace(x.TaiKhoanDangNhap.UserName) &&
+                string.Equals(
+                    x.TaiKhoanDangNhap.UserName.Trim(),
+                    userName,
+                    StringComparison.OrdinalIgnoreCase));
+
+            if (matchedEmployee == null)
+                return null;
+
+            employeeKey = lookupObjectSpace.GetKeyValue(matchedEmployee);
+        }
+
+        /*
+         * Không trả object thuộc lookupObjectSpace vì object của hai
+         * ObjectSpace khác nhau không được gán trực tiếp cho nhau.
+         * Tải lại hồ sơ bằng khóa trong ObjectSpace đang xử lý giao dịch.
+         */
+        return objectSpace.GetObjectByKey<Nhanvien>(employeeKey);
+    }
+
+    private string BuildPaymentNote()
+    {
+        string paymentLabel = GetPaymentMethodLabel(SelectedPaymentMethod);
+        string transactionText = string.IsNullOrWhiteSpace(MaGiaoDich)
+            ? ""
+            : $" Mã giao dịch: {MaGiaoDich.Trim()}.";
+
+        if (SelectedPaymentMethod == HinhThucThanhToanHoaDon.TienMat)
+        {
+            return $"Thanh toán {paymentLabel}. Khách đưa: {TienKhachDua:n0}. " +
+                   $"Tiền thừa: {TienThua:n0}.";
+        }
+
+        return $"Thanh toán {paymentLabel}.{transactionText}";
+    }
+
+    private string GetPaymentButtonClass(HinhThucThanhToanHoaDon method)
+    {
+        return method == SelectedPaymentMethod
+            ? "pos-payment-option active"
+            : "pos-payment-option";
+    }
+
+    private static string GetPaymentMethodLabel(HinhThucThanhToanHoaDon method)
+    {
+        return method switch
+        {
+            HinhThucThanhToanHoaDon.TienMat => "Tiền mặt",
+            HinhThucThanhToanHoaDon.ChuyenKhoan => "Chuyển khoản",
+            _ => "Thẻ / Khác"
+        };
+    }
+
+    private void CloseCheckout()
+    {
+        if (IsProcessingPayment)
+            return;
+
+        ShowCheckoutModal = false;
+        CheckoutError = "";
+    }
+
+    private void CloseCheckoutAndReturn()
+    {
+        ShowCheckoutModal = false;
+        GoExports();
+    }
+
+    private bool IsChuaXuat(DonThuoc item)
+    {
+        string value = item?.TrangThai.ToString().ToLowerInvariant() ?? "";
+        return value.Contains("chuaxuat") || value.Contains("cho");
+    }
+
+    private string GetStatusClass(DonThuoc item)
+    {
+        string value = item?.TrangThai.ToString().ToLowerInvariant() ?? "";
+
+        if (value.Contains("chuaxuat") || value.Contains("cho"))
+            return "staff-status warning";
+
+        if (value.Contains("daxuat") || value.Contains("da"))
+            return "staff-status success";
+
+        if (value.Contains("huy"))
+            return "staff-status danger";
+
+        return "staff-status neutral";
+    }
+
+    private string GetTenThuoc(ChiTietDonThuoc item)
+    {
+        return item?.Thuoc?.TenThuoc ?? "Chưa chọn thuốc";
+    }
+
+    private string GetTonThuoc(ChiTietDonThuoc item)
+    {
+        if (item?.Thuoc == null)
+            return "--";
+
+        return ToDecimal(item.Thuoc.SoLuongTon).ToString("n0");
+    }
+
+    private string GetDonViTinh(ChiTietDonThuoc item)
+    {
+        if (item == null)
+            return "--";
+
+        if (item.DonViTinh != null)
+            return item.DonViTinh.TenDvt;
+
+        if (item.Thuoc?.DonViTinh != null)
+            return item.Thuoc.DonViTinh.TenDvt;
+
+        return "--";
+    }
+
+    private decimal GetThanhTien(ChiTietDonThuoc item)
+    {
+        if (item == null)
+            return 0;
+
+        return ToDecimal(item.SoLuong) * ToDecimal(item.DonGia);
+    }
+
+    private static decimal ToDecimal(object value)
+    {
+        if (value == null)
+            return 0;
+
+        try
+        {
+            return Convert.ToDecimal(value);
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    private static string FormatDateTime(DateTime date)
+    {
+        if (date == DateTime.MinValue)
+            return "--";
+
+        return date.ToString("dd/MM/yyyy HH:mm");
+    }
+
+    private static string FormatNullableDateTime(DateTime? date)
+    {
+        return date.HasValue
+            ? date.Value.ToString("dd/MM/yyyy HH:mm")
+            : "--";
+    }
+
+    private static string FormatMoney(decimal value)
+    {
+        return value.ToString("n0") + " đ";
+    }
+
+    private static string EmptyText(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "--" : value;
+    }
+
+    private static string GetInitials(string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+            return "NV";
+
+        string[] parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length == 1)
+            return parts[0].Substring(0, Math.Min(2, parts[0].Length)).ToUpperInvariant();
+
+        return $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant();
+    }
+
+    private void GoPatients() => Navigation.NavigateTo("/staff/patients");
+    private void GoExams() => Navigation.NavigateTo("/staff/exams");
+    private void GoPrescriptions() => Navigation.NavigateTo("/staff/prescriptions");
+    private void GoMedicines() => Navigation.NavigateTo("/staff/medicines");
+    private void GoImports() => Navigation.NavigateTo("/staff/imports");
+    private void GoExports() => Navigation.NavigateTo("/staff/exports");
+    private void GoReports() => Navigation.NavigateTo("/staff/reports");
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+}

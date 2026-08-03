@@ -1,0 +1,2154 @@
+﻿@page "/staff/medicines/new"
+@page "/staff/medicines/edit/{Oid:int}"
+
+@using System.Globalization
+@using System.Linq
+@using DevExpress.ExpressApp
+@using ybaso.Module.BusinessObjects
+@implements IDisposable
+
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject NavigationManager Navigation
+
+<div class="staff-page">
+    <StaffSidebar ActiveMenu="medicines" />
+
+    <main class="staff-main">
+        <header class="mf-topbar">
+            <div>
+                <h1>@PageTitle</h1>
+
+                <p>
+                    Khai báo thông tin thuốc, chọn nhiều dược liệu cùng lúc
+                    và thiết lập định lượng cho từng thành phần.
+                </p>
+            </div>
+
+            <div class="mf-actions">
+                <button class="mf-btn mf-btn-outline"
+                        type="button"
+                        @onclick="GoMedicines">
+                    ← Quay lại
+                </button>
+
+                <button class="mf-btn mf-btn-primary"
+                        type="button"
+                        disabled="@IsSaving"
+                        @onclick="SaveMedicine">
+                    @(IsSaving ? "Đang lưu..." : "💾 Lưu thuốc")
+                </button>
+            </div>
+        </header>
+
+        @if (!string.IsNullOrWhiteSpace(Message))
+        {
+            <div class="@MessageClass">
+                @Message
+            </div>
+        }
+
+        <!-- THÔNG TIN THUỐC -->
+        <section class="staff-form-card">
+            <div class="staff-form-header">
+                <div class="staff-form-avatar">
+                    💊
+                </div>
+
+                <div>
+                    <h2>@PreviewName</h2>
+                    <p>@PreviewSubtitle</p>
+                </div>
+            </div>
+
+            <div class="staff-form-grid">
+                <div class="staff-form-group">
+                    <label>Mã thuốc</label>
+
+                    <input class="staff-form-control"
+                           placeholder="VD: TH001"
+                           @bind="MaThuoc" />
+                </div>
+
+                <div class="staff-form-group">
+                    <label>
+                        Tên thuốc
+                        <span class="required">*</span>
+                    </label>
+
+                    <input class="staff-form-control"
+                           placeholder="VD: Thang bổ khí huyết..."
+                           @bind="TenThuoc" />
+                </div>
+
+                <div class="staff-form-group">
+                    <label>
+                        Đơn vị tính
+                        <span class="required">*</span>
+                    </label>
+
+                    <select class="staff-form-control"
+                            value="@SelectedDvtOid"
+                            @onchange="OnDvtChanged">
+
+                        <option value="0">
+                            -- Chọn đơn vị tính --
+                        </option>
+
+                        @foreach (ListDvt dvt in DanhSachDvt)
+                        {
+                            <option value="@dvt.Oid">
+                                @dvt.TenDvt
+                            </option>
+                        }
+                    </select>
+                </div>
+
+                @if (IsEditMode)
+                {
+                    <div class="staff-form-group">
+                        <label>Tồn thuốc hiện tại</label>
+
+                        <input class="staff-form-control"
+                               type="number"
+                               value="@ToInvariant(SoLuongTon)"
+                               disabled />
+
+                        <small class="medicine-field-note">
+                            Không chỉnh trực tiếp để tránh trừ dược liệu lặp lại.
+                        </small>
+                    </div>
+
+                    <div class="staff-form-group">
+                        <label>Số lượng thuốc bổ sung</label>
+
+                        <input class="staff-form-control"
+                               type="number"
+                               min="0"
+                               step="1"
+                               @bind="SoLuongBoSung" />
+
+                        <small class="medicine-field-note">
+                            Kho dược liệu chỉ bị trừ theo số lượng bổ sung này.
+                        </small>
+                    </div>
+                }
+                else
+                {
+                    <div class="staff-form-group">
+                        <label>Số lượng tạo ban đầu</label>
+
+                        <input class="staff-form-control"
+                               type="number"
+                               min="0"
+                               step="1"
+                               @bind="SoLuongTon" />
+
+                        <small class="medicine-field-note">
+                            Nhập số lượng thuốc hoặc thang thuốc muốn tạo ngay.
+                        </small>
+                    </div>
+                }
+
+                <div class="staff-form-group">
+                    <label>Tồn tối thiểu</label>
+
+                    <input class="staff-form-control"
+                           type="number"
+                           min="0"
+                           step="1"
+                           @bind="TonToiThieu" />
+                </div>
+
+                <div class="staff-form-group">
+                    <label>Giá bán</label>
+
+                    @if (TuDongTinhGiaBan)
+                    {
+                        <input class="staff-form-control"
+                               type="number"
+                               value="@ToInvariant(GiaTinhTuDuocLieu)"
+                               disabled />
+
+                        <small class="medicine-field-note">
+                            Được tính từ giá nhập và định lượng các dược liệu.
+                        </small>
+                    }
+                    else
+                    {
+                        <input class="staff-form-control"
+                               type="number"
+                               min="0"
+                               step="1000"
+                               @bind="GiaBan" />
+                    }
+                </div>
+
+                <div class="staff-form-group">
+                    <label>Sử dụng</label>
+
+                    <select class="staff-form-control"
+                            @bind="SuDungValue">
+
+                        <option value="true">
+                            Đang dùng
+                        </option>
+
+                        <option value="false">
+                            Ngừng dùng
+                        </option>
+                    </select>
+                </div>
+
+                <div class="staff-form-group">
+                    <label>Cách tính giá bán</label>
+
+                    <label class="medicine-checkbox">
+                        <input type="checkbox"
+                               @bind="TuDongTinhGiaBan" />
+
+                        <span>
+                            Tự động tính từ thành phần dược liệu
+                        </span>
+                    </label>
+                </div>
+
+                <div class="staff-form-group full">
+                    <label>Mô tả</label>
+
+                    <textarea class="staff-form-control"
+                              placeholder="Nhập công dụng, cách dùng hoặc ghi chú..."
+                              @bind="MoTa">
+                    </textarea>
+                </div>
+            </div>
+        </section>
+
+        <!-- THÀNH PHẦN THANG THUỐC -->
+        <section class="staff-form-card medicine-composition-card">
+            <div class="medicine-section-head">
+                <div>
+                    <h2>Thành phần thang thuốc</h2>
+
+                    <p>
+                        Tick chọn nhiều dược liệu, sau đó thêm tất cả vào
+                        thang thuốc chỉ bằng một lần bấm.
+                    </p>
+                </div>
+
+                <div class="medicine-section-summary">
+                    <span>
+                        @ThanhPhanTam.Count thành phần
+                    </span>
+
+                    <strong>
+                        @FormatMoney(GiaTinhTuDuocLieu)
+                    </strong>
+                </div>
+            </div>
+
+            <!-- CHỌN NHIỀU DƯỢC LIỆU -->
+            <div class="medicine-multi-select">
+                <div class="medicine-multi-toolbar">
+                    <div class="mf-search medicine-herb-search">
+                        <span>🔍</span>
+
+                        <input placeholder="Tìm tên, mã hoặc đơn vị tính..."
+                               @bind="DuocLieuSearchText"
+                               @bind:event="oninput" />
+                    </div>
+
+                    <label class="medicine-select-all">
+                        <input type="checkbox"
+                               checked="@AreAllVisibleHerbsSelected"
+                               @onchange="ToggleAllVisibleHerbs" />
+
+                        <span>
+                            Chọn tất cả đang hiển thị
+                        </span>
+                    </label>
+
+                    <div class="medicine-selected-count">
+                        Đã chọn:
+                        <strong>@SelectedDuocLieuOids.Count</strong>
+                    </div>
+                </div>
+
+                <div class="medicine-herb-checklist">
+                    @foreach (DuocLieu duocLieu in DuocLieuDanhSachTick)
+                    {
+                        bool isSelected =
+                            IsHerbSelected(duocLieu.Oid);
+
+                        <label class="medicine-herb-check-row @(isSelected ? "selected" : string.Empty)">
+                            <div class="medicine-herb-check-main">
+                                <input type="checkbox"
+                                       checked="@isSelected"
+                                       @onchange="@(e => ToggleHerbSelection(
+                                                                                  duocLieu.Oid,
+                                                                                  e))" />
+
+                                <div class="medicine-herb-avatar">
+                                    🌿
+                                </div>
+
+                                <div class="medicine-herb-info">
+                                    <strong>
+                                        @EmptyText(duocLieu.TenDuocLieu)
+                                    </strong>
+
+                                    <small>
+                                        @GetHerbCode(duocLieu)
+                                    </small>
+                                </div>
+                            </div>
+
+                            <div class="medicine-herb-unit">
+                                @GetDvtName(duocLieu)
+                            </div>
+
+                            <div class="medicine-herb-price">
+                                <small>Giá nhập</small>
+
+                                <strong>
+                                    @FormatMoney(
+                                        duocLieu.GiaNhapGanNhat
+                                    )
+                                </strong>
+                            </div>
+
+                            <div class="@GetChecklistStockClass(duocLieu)">
+                                <small>Tồn kho</small>
+
+                                <strong>
+                                    @FormatQuantity(
+                                        duocLieu.SoLuongTon
+                                    )
+                                    @GetDvtName(duocLieu)
+                                </strong>
+                            </div>
+                        </label>
+                    }
+
+                    @if (!DuocLieuDanhSachTick.Any())
+                    {
+                        <div class="medicine-herb-no-result">
+                            Không còn dược liệu phù hợp để chọn.
+                        </div>
+                    }
+                </div>
+
+                <div class="medicine-multi-footer">
+                    <div class="staff-form-group">
+                        <label>
+                            Số lượng mặc định cho mỗi thành phần
+                        </label>
+
+                        <input class="staff-form-control"
+                               type="number"
+                               min="0.01"
+                               step="0.01"
+                               @bind="SoLuongMacDinhChoDuocLieu" />
+
+                        <small class="medicine-field-note">
+                            Sau khi thêm, bạn vẫn có thể chỉnh riêng
+                            từng dược liệu.
+                        </small>
+                    </div>
+
+                    <div class="staff-form-group">
+                        <label>Ghi chú mặc định</label>
+
+                        <input class="staff-form-control"
+                               placeholder="Không bắt buộc"
+                               @bind="GhiChuMacDinhChoDuocLieu" />
+                    </div>
+
+                    <div class="medicine-add-selected">
+                        <button class="mf-btn mf-btn-primary"
+                                type="button"
+                                disabled="@(SelectedDuocLieuOids.Count == 0)"
+                                @onclick="AddSelectedIngredients">
+
+                            + Thêm @SelectedDuocLieuOids.Count
+                            dược liệu đã chọn
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BẢNG THÀNH PHẦN ĐÃ THÊM -->
+            @if (ThanhPhanTam.Any())
+            {
+                <div class="medicine-table-wrapper">
+                    <table class="mf-table medicine-ingredient-table">
+                        <thead>
+                            <tr>
+                                <th>Dược liệu</th>
+                                <th>Tồn hiện tại</th>
+                                <th>Số lượng / 1 thuốc</th>
+                                <th>Cần dùng lần này</th>
+                                <th>Giá nhập</th>
+                                <th>Thành tiền</th>
+                                <th>Ghi chú</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach (
+                                MedicineIngredientRow item
+                                in ThanhPhanTam
+                            )
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="staff-cell-main">
+                                            <div class="staff-circle">
+                                                D
+                                            </div>
+
+                                            <div>
+                                                <strong>
+                                                    @item.TenDuocLieu
+                                                </strong>
+
+                                                <small>
+                                                    @item.MaDuocLieu
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <strong>
+                                            @FormatQuantity(item.TonKho)
+                                        </strong>
+
+                                        <small class="medicine-unit">
+                                            @item.DonViTinh
+                                        </small>
+                                    </td>
+
+                                    <td>
+                                        <div class="medicine-quantity-input">
+                                            <input type="number"
+                                                   min="0.01"
+                                                   step="0.01"
+                                                   value="@ToInvariant(item.SoLuong)"
+                                                   @oninput="@(e =>
+                                                                                                          ChangeIngredientQuantity(
+                                                                                                              item,
+                                                                                                              e))" />
+
+                                            <span>
+                                                @item.DonViTinh
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <td>
+                                        <strong class="@GetRequiredStockClass(item)">
+                                            @FormatQuantity(
+                                                GetRequiredQuantity(item)
+                                            )
+                                        </strong>
+
+                                        <small class="medicine-unit">
+                                            @item.DonViTinh
+                                        </small>
+                                    </td>
+
+                                    <td>
+                                        @FormatMoney(item.GiaNhap)
+                                    </td>
+
+                                    <td>
+                                        <strong>
+                                            @FormatMoney(item.ThanhTien)
+                                        </strong>
+                                    </td>
+
+                                    <td>
+                                        <input class="medicine-note-input"
+                                               value="@item.GhiChu"
+                                               placeholder="Ghi chú..."
+                                               @oninput="@(e =>
+                                                                                                  ChangeIngredientNote(
+                                                                                                      item,
+                                                                                                      e))" />
+                                    </td>
+
+                                    <td>
+                                        <button class="staff-table-btn danger"
+                                                type="button"
+                                                @onclick="@(() =>
+                                                                                                    RemoveIngredient(item))">
+                                            Xóa
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+
+                        <tfoot>
+                            <tr>
+                                <td colspan="5">
+                                    <strong>
+                                        Giá dược liệu cho một đơn vị thuốc
+                                    </strong>
+                                </td>
+
+                                <td>
+                                    <strong>
+                                        @FormatMoney(GiaTinhTuDuocLieu)
+                                    </strong>
+                                </td>
+
+                                <td colspan="2"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="medicine-empty-ingredients">
+                    <div>🌿</div>
+
+                    <strong>
+                        Chưa có thành phần dược liệu
+                    </strong>
+
+                    <p>
+                        Tick chọn các dược liệu phía trên rồi bấm
+                        “Thêm dược liệu đã chọn”.
+                    </p>
+                </div>
+            }
+
+            
+        </section>
+
+        
+    </main>
+</div>
+
+<style>
+    .medicine-composition-card {
+        margin-top: 24px;
+    }
+
+    .medicine-section-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 24px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #dbe5f1;
+    }
+
+    .medicine-section-head h2 {
+        margin: 0 0 6px;
+        color: #0f172a;
+        font-size: 22px;
+        font-weight: 800;
+    }
+
+    .medicine-section-head p {
+        margin: 0;
+        color: #64748b;
+    }
+
+    .medicine-section-summary {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 4px;
+        white-space: nowrap;
+    }
+
+    .medicine-section-summary span {
+        color: #64748b;
+        font-size: 14px;
+    }
+
+    .medicine-section-summary strong {
+        color: #0f766e;
+        font-size: 21px;
+    }
+
+    .medicine-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 44px;
+        padding: 10px 13px;
+        border: 1px solid #d7e2ef;
+        border-radius: 10px;
+        background: #ffffff;
+        cursor: pointer;
+    }
+
+    .medicine-checkbox input {
+        width: 18px;
+        height: 18px;
+        accent-color: #0f8a80;
+    }
+
+    .medicine-field-note {
+        display: block;
+        margin-top: 6px;
+        color: #64748b;
+        font-size: 12px;
+        line-height: 1.4;
+    }
+
+    .medicine-multi-select {
+        margin-top: 22px;
+        overflow: hidden;
+        border: 1px solid #dbe5f1;
+        border-radius: 14px;
+        background: #ffffff;
+    }
+
+    .medicine-multi-toolbar {
+        display: grid;
+        grid-template-columns:
+            minmax(280px, 1fr)
+            auto
+            auto;
+        align-items: center;
+        gap: 18px;
+        padding: 16px 18px;
+        border-bottom: 1px solid #dbe5f1;
+        background: #f8fafc;
+    }
+
+    .medicine-herb-search {
+        width: 100%;
+    }
+
+    .medicine-select-all {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        color: #334155;
+        font-weight: 700;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
+    .medicine-select-all input,
+    .medicine-herb-check-main input {
+        width: 18px;
+        height: 18px;
+        margin: 0;
+        accent-color: #0f8a80;
+        cursor: pointer;
+    }
+
+    .medicine-selected-count {
+        padding: 8px 13px;
+        border-radius: 999px;
+        background: #ccfbf1;
+        color: #0f766e;
+        white-space: nowrap;
+    }
+
+    .medicine-herb-checklist {
+        max-height: 390px;
+        overflow-y: auto;
+        padding: 8px;
+    }
+
+    .medicine-herb-check-row {
+        display: grid;
+        grid-template-columns:
+            minmax(280px, 1.5fr)
+            minmax(100px, 0.5fr)
+            minmax(140px, 0.7fr)
+            minmax(150px, 0.7fr);
+        align-items: center;
+        gap: 18px;
+        margin-bottom: 6px;
+        padding: 13px 14px;
+        border: 1px solid transparent;
+        border-radius: 11px;
+        cursor: pointer;
+        transition:
+            background 0.15s ease,
+            border-color 0.15s ease;
+    }
+
+    .medicine-herb-check-row:hover {
+        background: #f1f5f9;
+    }
+
+    .medicine-herb-check-row.selected {
+        border-color: #5eead4;
+        background: #ecfdf5;
+    }
+
+    .medicine-herb-check-main {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    .medicine-herb-avatar {
+        display: flex;
+        width: 38px;
+        height: 38px;
+        flex: 0 0 38px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: #ccfbf1;
+    }
+
+    .medicine-herb-info {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .medicine-herb-info strong {
+        overflow: hidden;
+        color: #0f172a;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .medicine-herb-info small,
+    .medicine-herb-price small,
+    .medicine-herb-stock small {
+        color: #64748b;
+    }
+
+    .medicine-herb-unit {
+        color: #334155;
+        font-weight: 600;
+    }
+
+    .medicine-herb-price,
+    .medicine-herb-stock {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .medicine-herb-price strong {
+        color: #0f172a;
+    }
+
+    .medicine-herb-stock.success strong {
+        color: #15803d;
+    }
+
+    .medicine-herb-stock.warning strong {
+        color: #d97706;
+    }
+
+    .medicine-herb-stock.danger strong {
+        color: #dc2626;
+    }
+
+    .medicine-herb-no-result {
+        padding: 36px 20px;
+        color: #64748b;
+        text-align: center;
+    }
+
+    .medicine-multi-footer {
+        display: grid;
+        grid-template-columns:
+            minmax(220px, 1fr)
+            minmax(240px, 1.5fr)
+            auto;
+        align-items: end;
+        gap: 18px;
+        padding: 18px;
+        border-top: 1px solid #dbe5f1;
+        background: #f8fafc;
+    }
+
+    .medicine-add-selected {
+        padding-bottom: 1px;
+    }
+
+    .medicine-add-selected .mf-btn {
+        min-height: 44px;
+        white-space: nowrap;
+    }
+
+    .medicine-add-selected .mf-btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+    }
+
+    .medicine-table-wrapper {
+        width: 100%;
+        margin-top: 22px;
+        overflow-x: auto;
+        border: 1px solid #dbe5f1;
+        border-radius: 14px;
+    }
+
+    .medicine-ingredient-table {
+        min-width: 1120px;
+        margin: 0;
+    }
+
+    .medicine-ingredient-table tfoot td {
+        background: #f8fafc;
+        border-top: 2px solid #dbe5f1;
+    }
+
+    .medicine-quantity-input {
+        display: flex;
+        align-items: center;
+        min-width: 145px;
+        overflow: hidden;
+        border: 1px solid #cbd5e1;
+        border-radius: 9px;
+        background: #ffffff;
+    }
+
+    .medicine-quantity-input:focus-within {
+        border-color: #0f8a80;
+        box-shadow:
+            0 0 0 3px rgba(15, 138, 128, 0.12);
+    }
+
+    .medicine-quantity-input input {
+        width: 92px;
+        min-width: 0;
+        padding: 9px 10px;
+        border: 0;
+        outline: none;
+        background: transparent;
+        color: #0f172a;
+    }
+
+    .medicine-quantity-input span {
+        flex: 1;
+        padding: 9px 10px;
+        border-left: 1px solid #e2e8f0;
+        background: #f8fafc;
+        color: #64748b;
+        text-align: center;
+    }
+
+    .medicine-note-input {
+        width: 180px;
+        padding: 9px 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 9px;
+        outline: none;
+    }
+
+    .medicine-note-input:focus {
+        border-color: #0f8a80;
+        box-shadow:
+            0 0 0 3px rgba(15, 138, 128, 0.12);
+    }
+
+    .medicine-unit {
+        display: inline-block;
+        margin-left: 4px;
+        color: #64748b;
+    }
+
+    .medicine-stock-sufficient {
+        color: #15803d;
+    }
+
+    .medicine-stock-insufficient {
+        color: #dc2626;
+    }
+
+    .medicine-empty-ingredients {
+        margin-top: 22px;
+        padding: 40px 24px;
+        border: 1px dashed #b8c7d9;
+        border-radius: 14px;
+        background: #f8fafc;
+        text-align: center;
+    }
+
+    .medicine-empty-ingredients > div {
+        margin-bottom: 8px;
+        font-size: 34px;
+    }
+
+    .medicine-empty-ingredients strong {
+        display: block;
+        margin-bottom: 6px;
+        color: #0f172a;
+        font-size: 17px;
+    }
+
+    .medicine-empty-ingredients p {
+        margin: 0;
+        color: #64748b;
+    }
+
+    .medicine-stock-note {
+        display: flex;
+        gap: 8px;
+        margin-top: 18px;
+        padding: 14px 16px;
+        border: 1px solid #bfdbfe;
+        border-radius: 12px;
+        background: #eff6ff;
+        color: #1e3a8a;
+    }
+
+    .medicine-save-summary {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 24px;
+        margin-top: 24px;
+    }
+
+    .medicine-save-summary h3 {
+        margin: 0 0 5px;
+        color: #0f172a;
+    }
+
+    .medicine-save-summary p {
+        margin: 0;
+        color: #64748b;
+    }
+
+    .staff-table-btn.danger {
+        background: #fee2e2;
+        color: #b91c1c;
+    }
+
+    .staff-table-btn.danger:hover {
+        background: #fecaca;
+        color: #991b1b;
+    }
+
+    @@media (max-width: 1100px) {
+        .medicine-multi-toolbar {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .medicine-selected-count {
+            justify-self: start;
+        }
+
+        .medicine-herb-check-row {
+            grid-template-columns:
+                minmax(240px, 1fr)
+                100px
+                140px;
+        }
+
+        .medicine-herb-price {
+            display: none;
+        }
+
+        .medicine-multi-footer {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .medicine-add-selected {
+            grid-column: 1 / -1;
+        }
+
+        .medicine-add-selected .mf-btn {
+            width: 100%;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .medicine-section-head,
+        .medicine-save-summary {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .medicine-section-summary {
+            align-items: flex-start;
+        }
+
+        .medicine-multi-toolbar,
+        .medicine-multi-footer {
+            grid-template-columns: 1fr;
+        }
+
+        .medicine-herb-check-row {
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+
+        .medicine-herb-unit,
+        .medicine-herb-stock {
+            padding-left: 68px;
+        }
+
+        .medicine-stock-note {
+            flex-direction: column;
+        }
+    }
+</style>
+
+@code {
+    [Parameter]
+    public int Oid { get; set; }
+
+    private IObjectSpace objectSpace;
+    private DanhMucThuoc Thuoc;
+
+    private readonly List<MedicineIngredientRow>
+        ThanhPhanTam = new();
+
+    private readonly HashSet<int>
+        SelectedDuocLieuOids = new();
+
+    private List<ListDvt> DanhSachDvt = new();
+    private List<DuocLieu> DanhSachDuocLieu = new();
+
+    private string Message = string.Empty;
+
+    private string MessageClass =
+        "mf-alert mf-alert-success";
+
+    private string MaThuoc = string.Empty;
+    private string TenThuoc = string.Empty;
+
+    private int SelectedDvtOid;
+
+    private decimal SoLuongTon;
+    private decimal SoLuongBoSung;
+    private decimal TonToiThieu;
+    private decimal GiaBan;
+
+    private bool TuDongTinhGiaBan = true;
+
+    private string SuDungValue = "true";
+    private string MoTa = string.Empty;
+
+    private string DuocLieuSearchText =
+        string.Empty;
+
+    private decimal SoLuongMacDinhChoDuocLieu = 1;
+
+    private string GhiChuMacDinhChoDuocLieu =
+        string.Empty;
+
+    private bool IsSaving;
+
+    private bool IsEditMode =>
+        Oid > 0;
+
+    private string PageTitle =>
+        IsEditMode
+            ? "Cập nhật thuốc / thang thuốc"
+            : "Thêm thuốc / thang thuốc";
+
+    private decimal SoLuongCanTaoLanNay =>
+        IsEditMode
+            ? SoLuongBoSung
+            : SoLuongTon;
+
+    private decimal GiaTinhTuDuocLieu =>
+        ThanhPhanTam.Sum(
+            x => x.SoLuong * x.GiaNhap
+        );
+
+    private decimal GiaBanHienTai =>
+        TuDongTinhGiaBan
+            ? GiaTinhTuDuocLieu
+            : GiaBan;
+
+    private string PreviewName =>
+        string.IsNullOrWhiteSpace(TenThuoc)
+            ? "Thuốc / thang thuốc mới"
+            : TenThuoc;
+
+    private string PreviewSubtitle
+    {
+        get
+        {
+            string trangThai =
+                SuDungValue == "true"
+                    ? "Đang dùng"
+                    : "Ngừng dùng";
+
+            return
+                $"{FormatQuantity(SoLuongTon)} tồn kho" +
+                $" • {FormatMoney(GiaBanHienTai)}" +
+                $" • {ThanhPhanTam.Count} thành phần" +
+                $" • {trangThai}";
+        }
+    }
+
+    private IEnumerable<DuocLieu>
+        DuocLieuDanhSachTick
+    {
+        get
+        {
+            HashSet<int> daThemVaoThanhPhan =
+                ThanhPhanTam
+                    .Select(x => x.DuocLieuOid)
+                    .ToHashSet();
+
+            IEnumerable<DuocLieu> query =
+                DanhSachDuocLieu.Where(x =>
+                    x.SuDung &&
+                    !daThemVaoThanhPhan.Contains(
+                        x.Oid
+                    )
+                );
+
+            if (!string.IsNullOrWhiteSpace(
+                DuocLieuSearchText))
+            {
+                string keyword =
+                    DuocLieuSearchText
+                        .Trim()
+                        .ToLowerInvariant();
+
+                query = query.Where(x =>
+                    (x.MaDuocLieu ?? string.Empty)
+                        .ToLowerInvariant()
+                        .Contains(keyword) ||
+
+                    (x.TenDuocLieu ?? string.Empty)
+                        .ToLowerInvariant()
+                        .Contains(keyword) ||
+
+                    GetDvtName(x)
+                        .ToLowerInvariant()
+                        .Contains(keyword)
+                );
+            }
+
+            return query
+                .OrderBy(x => x.TenDuocLieu);
+        }
+    }
+
+    private bool AreAllVisibleHerbsSelected
+    {
+        get
+        {
+            List<int> visibleIds =
+                DuocLieuDanhSachTick
+                    .Select(x => x.Oid)
+                    .ToList();
+
+            return
+                visibleIds.Count > 0 &&
+                visibleIds.All(
+                    SelectedDuocLieuOids.Contains
+                );
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        objectSpace =
+            ObjectSpaceFactory.CreateObjectSpace(
+                typeof(DanhMucThuoc)
+            );
+
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        DanhSachDvt =
+            objectSpace
+                .GetObjects<ListDvt>()
+                .OrderBy(x => x.TenDvt)
+                .ToList();
+
+        DanhSachDuocLieu =
+            objectSpace
+                .GetObjects<DuocLieu>()
+                .OrderBy(x => x.TenDuocLieu)
+                .ToList();
+
+        ThanhPhanTam.Clear();
+        SelectedDuocLieuOids.Clear();
+
+        DuocLieuSearchText =
+            string.Empty;
+
+        if (IsEditMode)
+        {
+            Thuoc =
+                objectSpace
+                    .GetObjectByKey<DanhMucThuoc>(
+                        Oid
+                    );
+
+            if (Thuoc == null)
+            {
+                ShowError(
+                    "Không tìm thấy thuốc cần cập nhật."
+                );
+
+                return;
+            }
+
+            MaThuoc =
+                Thuoc.MaThuoc ?? string.Empty;
+
+            TenThuoc =
+                Thuoc.TenThuoc ?? string.Empty;
+
+            SelectedDvtOid =
+                Thuoc.DonViTinh?.Oid ?? 0;
+
+            SoLuongTon =
+                Thuoc.SoLuongTon;
+
+            SoLuongBoSung = 0;
+
+            TonToiThieu =
+                Thuoc.TonToiThieu;
+
+            GiaBan =
+                Thuoc.GiaBan;
+
+            TuDongTinhGiaBan =
+                Thuoc.TuDongTinhGiaBan;
+
+            SuDungValue =
+                Thuoc.SuDung
+                    ? "true"
+                    : "false";
+
+            MoTa =
+                Thuoc.MoTa ?? string.Empty;
+
+            foreach (
+                ThanhPhanThuoc thanhPhan
+                in Thuoc.ThanhPhanThuocs
+                    .Where(x =>
+                        x.DuocLieu != null
+                    )
+                    .OrderBy(x =>
+                        x.DuocLieu.TenDuocLieu
+                    )
+            )
+            {
+                ThanhPhanTam.Add(
+                    CreateIngredientRow(
+                        thanhPhan
+                    )
+                );
+            }
+        }
+        else
+        {
+            Thuoc =
+                objectSpace
+                    .CreateObject<DanhMucThuoc>();
+
+            MaThuoc = string.Empty;
+            TenThuoc = string.Empty;
+
+            SelectedDvtOid = 0;
+
+            SoLuongTon = 0;
+            SoLuongBoSung = 0;
+            TonToiThieu = 0;
+            GiaBan = 0;
+
+            TuDongTinhGiaBan = true;
+            SuDungValue = "true";
+
+            MoTa = string.Empty;
+        }
+    }
+
+    private MedicineIngredientRow
+        CreateIngredientRow(
+            ThanhPhanThuoc thanhPhan)
+    {
+        DuocLieu duocLieu =
+            thanhPhan.DuocLieu;
+
+        return new MedicineIngredientRow
+        {
+            ThanhPhanOid =
+                thanhPhan.Oid,
+
+            DuocLieuOid =
+                duocLieu.Oid,
+
+            MaDuocLieu =
+                GetHerbCode(duocLieu),
+
+            TenDuocLieu =
+                duocLieu.TenDuocLieu ?? "--",
+
+            DonViTinh =
+                GetDvtName(duocLieu),
+
+            TonKho =
+                duocLieu.SoLuongTon,
+
+            GiaNhap =
+                duocLieu.GiaNhapGanNhat,
+
+            SoLuong =
+                thanhPhan.SoLuong,
+
+            GhiChu =
+                thanhPhan.GhiChu ??
+                string.Empty
+        };
+    }
+
+    private void OnDvtChanged(
+        ChangeEventArgs e)
+    {
+        int.TryParse(
+            e.Value?.ToString(),
+            out SelectedDvtOid
+        );
+    }
+
+    private bool IsHerbSelected(int oid)
+    {
+        return SelectedDuocLieuOids
+            .Contains(oid);
+    }
+
+    private void ToggleHerbSelection(
+        int oid,
+        ChangeEventArgs e)
+    {
+        bool isChecked =
+            GetCheckboxValue(e);
+
+        if (isChecked)
+        {
+            SelectedDuocLieuOids.Add(oid);
+        }
+        else
+        {
+            SelectedDuocLieuOids.Remove(oid);
+        }
+    }
+
+    private void ToggleAllVisibleHerbs(
+        ChangeEventArgs e)
+    {
+        bool isChecked =
+            GetCheckboxValue(e);
+
+        List<int> visibleIds =
+            DuocLieuDanhSachTick
+                .Select(x => x.Oid)
+                .ToList();
+
+        if (isChecked)
+        {
+            foreach (int oid in visibleIds)
+            {
+                SelectedDuocLieuOids.Add(oid);
+            }
+        }
+        else
+        {
+            foreach (int oid in visibleIds)
+            {
+                SelectedDuocLieuOids.Remove(oid);
+            }
+        }
+    }
+
+    private bool GetCheckboxValue(
+        ChangeEventArgs e)
+    {
+        if (e.Value is bool boolValue)
+            return boolValue;
+
+        return bool.TryParse(
+            e.Value?.ToString(),
+            out bool parsed
+        ) && parsed;
+    }
+
+    private void AddSelectedIngredients()
+    {
+        Message = string.Empty;
+
+        if (SelectedDuocLieuOids.Count == 0)
+        {
+            ShowError(
+                "Vui lòng tick chọn ít nhất một dược liệu."
+            );
+
+            return;
+        }
+
+        if (SoLuongMacDinhChoDuocLieu <= 0)
+        {
+            ShowError(
+                "Số lượng mặc định phải lớn hơn 0."
+            );
+
+            return;
+        }
+
+        List<int> selectedIds =
+            SelectedDuocLieuOids.ToList();
+
+        foreach (int duocLieuOid in selectedIds)
+        {
+            bool daTonTai =
+                ThanhPhanTam.Any(x =>
+                    x.DuocLieuOid == duocLieuOid
+                );
+
+            if (daTonTai)
+                continue;
+
+            DuocLieu duocLieu =
+                DanhSachDuocLieu
+                    .FirstOrDefault(x =>
+                        x.Oid == duocLieuOid
+                    );
+
+            if (duocLieu == null)
+                continue;
+
+            ThanhPhanTam.Add(
+                new MedicineIngredientRow
+                {
+                    ThanhPhanOid = 0,
+
+                    DuocLieuOid =
+                        duocLieu.Oid,
+
+                    MaDuocLieu =
+                        GetHerbCode(duocLieu),
+
+                    TenDuocLieu =
+                        duocLieu.TenDuocLieu ??
+                        "--",
+
+                    DonViTinh =
+                        GetDvtName(duocLieu),
+
+                    TonKho =
+                        duocLieu.SoLuongTon,
+
+                    GiaNhap =
+                        duocLieu.GiaNhapGanNhat,
+
+                    SoLuong =
+                        SoLuongMacDinhChoDuocLieu,
+
+                    GhiChu =
+                        GhiChuMacDinhChoDuocLieu
+                            ?.Trim() ??
+                        string.Empty
+                }
+            );
+        }
+
+        SelectedDuocLieuOids.Clear();
+
+        SoLuongMacDinhChoDuocLieu = 1;
+
+        GhiChuMacDinhChoDuocLieu =
+            string.Empty;
+
+        DuocLieuSearchText =
+            string.Empty;
+    }
+
+    private void RemoveIngredient(
+        MedicineIngredientRow item)
+    {
+        ThanhPhanTam.Remove(item);
+    }
+
+    private void ChangeIngredientQuantity(
+        MedicineIngredientRow item,
+        ChangeEventArgs e)
+    {
+        string value =
+            e.Value?.ToString() ??
+            string.Empty;
+
+        if (TryParseDecimal(
+            value,
+            out decimal quantity))
+        {
+            item.SoLuong = quantity;
+        }
+        else
+        {
+            item.SoLuong = 0;
+        }
+    }
+
+    private void ChangeIngredientNote(
+        MedicineIngredientRow item,
+        ChangeEventArgs e)
+    {
+        item.GhiChu =
+            e.Value?.ToString() ??
+            string.Empty;
+    }
+
+    private bool TryParseDecimal(
+        string value,
+        out decimal result)
+    {
+        if (decimal.TryParse(
+            value,
+            NumberStyles.Number,
+            CultureInfo.InvariantCulture,
+            out result))
+        {
+            return true;
+        }
+
+        return decimal.TryParse(
+            value,
+            NumberStyles.Number,
+            CultureInfo.CurrentCulture,
+            out result
+        );
+    }
+
+    private bool ValidateForm()
+    {
+        Message = string.Empty;
+
+        if (Thuoc == null)
+        {
+            ShowError(
+                "Không có đối tượng thuốc để lưu."
+            );
+
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(
+            TenThuoc))
+        {
+            ShowError(
+                "Vui lòng nhập tên thuốc."
+            );
+
+            return false;
+        }
+
+        if (SelectedDvtOid <= 0)
+        {
+            ShowError(
+                "Vui lòng chọn đơn vị tính cho thuốc."
+            );
+
+            return false;
+        }
+
+        if (SoLuongTon < 0 ||
+            SoLuongBoSung < 0 ||
+            TonToiThieu < 0)
+        {
+            ShowError(
+                "Số lượng và tồn tối thiểu không được nhỏ hơn 0."
+            );
+
+            return false;
+        }
+
+        if (!TuDongTinhGiaBan &&
+            GiaBan < 0)
+        {
+            ShowError(
+                "Giá bán không được nhỏ hơn 0."
+            );
+
+            return false;
+        }
+
+        string normalizedCode =
+            MaThuoc?.Trim() ??
+            string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(
+            normalizedCode))
+        {
+            bool trungMa =
+                objectSpace
+                    .GetObjects<DanhMucThuoc>()
+                    .Any(x =>
+                        x != Thuoc &&
+
+                        string.Equals(
+                            x.MaThuoc?.Trim(),
+                            normalizedCode,
+                            StringComparison
+                                .OrdinalIgnoreCase
+                        )
+                    );
+
+            if (trungMa)
+            {
+                ShowError(
+                    $"Mã thuốc \"{normalizedCode}\" đã tồn tại."
+                );
+
+                return false;
+            }
+        }
+
+        foreach (
+            MedicineIngredientRow item
+            in ThanhPhanTam)
+        {
+            if (item.DuocLieuOid <= 0)
+            {
+                ShowError(
+                    "Có thành phần chưa chọn dược liệu."
+                );
+
+                return false;
+            }
+
+            if (item.SoLuong <= 0)
+            {
+                ShowError(
+                    $"Số lượng của dược liệu " +
+                    $"\"{item.TenDuocLieu}\" " +
+                    "phải lớn hơn 0."
+                );
+
+                return false;
+            }
+        }
+
+        if (SoLuongCanTaoLanNay > 0 &&
+            !ThanhPhanTam.Any())
+        {
+            ShowError(
+                "Vui lòng khai báo thành phần dược liệu " +
+                "trước khi tạo tồn thuốc."
+            );
+
+            return false;
+        }
+
+        return ValidateHerbStock();
+    }
+
+    private bool ValidateHerbStock()
+    {
+        if (SoLuongCanTaoLanNay <= 0)
+            return true;
+
+        var groups =
+            ThanhPhanTam
+                .GroupBy(x =>
+                    x.DuocLieuOid
+                )
+                .Select(x => new
+                {
+                    DuocLieuOid =
+                        x.Key,
+
+                    SoLuongCanDung =
+                        x.Sum(y =>
+                            y.SoLuong
+                        ) *
+                        SoLuongCanTaoLanNay
+                })
+                .ToList();
+
+        foreach (var group in groups)
+        {
+            DuocLieu duocLieu =
+                objectSpace
+                    .GetObjectByKey<DuocLieu>(
+                        group.DuocLieuOid
+                    );
+
+            if (duocLieu == null)
+            {
+                ShowError(
+                    "Có dược liệu không còn tồn tại trong hệ thống."
+                );
+
+                return false;
+            }
+
+            if (duocLieu.SoLuongTon <
+                group.SoLuongCanDung)
+            {
+                ShowError(
+                    $"Dược liệu \"{duocLieu.TenDuocLieu}\" " +
+                    $"không đủ tồn kho. Cần " +
+                    $"{FormatQuantity(group.SoLuongCanDung)} " +
+                    $"{GetDvtName(duocLieu)}, hiện còn " +
+                    $"{FormatQuantity(duocLieu.SoLuongTon)} " +
+                    $"{GetDvtName(duocLieu)}."
+                );
+
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void SaveMedicine()
+    {
+        if (IsSaving)
+            return;
+
+        IsSaving = true;
+
+        try
+        {
+            if (!ValidateForm())
+                return;
+
+            ListDvt donViTinh =
+                objectSpace
+                    .GetObjectByKey<ListDvt>(
+                        SelectedDvtOid
+                    );
+
+            if (donViTinh == null)
+            {
+                ShowError(
+                    "Đơn vị tính của thuốc không tồn tại."
+                );
+
+                return;
+            }
+
+            Thuoc.MaThuoc =
+                string.IsNullOrWhiteSpace(
+                    MaThuoc)
+                    ? null
+                    : MaThuoc.Trim();
+
+            Thuoc.TenThuoc =
+                TenThuoc.Trim();
+
+            Thuoc.DonViTinh =
+                donViTinh;
+
+            Thuoc.TonToiThieu =
+                TonToiThieu;
+
+            Thuoc.TuDongTinhGiaBan =
+                TuDongTinhGiaBan;
+
+            Thuoc.GiaBan =
+                TuDongTinhGiaBan
+                    ? GiaTinhTuDuocLieu
+                    : GiaBan;
+
+            Thuoc.SuDung =
+                SuDungValue == "true";
+
+            Thuoc.MoTa =
+                string.IsNullOrWhiteSpace(
+                    MoTa)
+                    ? null
+                    : MoTa.Trim();
+
+            SyncIngredients();
+
+            if (IsEditMode)
+            {
+                if (SoLuongBoSung > 0)
+                {
+                    DeductHerbStock(
+                        SoLuongBoSung
+                    );
+
+                    Thuoc.SoLuongTon +=
+                        SoLuongBoSung;
+                }
+            }
+            else
+            {
+                Thuoc.SoLuongTon =
+                    SoLuongTon;
+
+                if (SoLuongTon > 0)
+                {
+                    DeductHerbStock(
+                        SoLuongTon
+                    );
+
+                    Thuoc.DaTruDuocLieuKhiTao =
+                        true;
+                }
+            }
+
+            objectSpace.CommitChanges();
+
+            Navigation.NavigateTo(
+                "/staff/medicines"
+            );
+        }
+        catch (Exception ex)
+        {
+            ShowError(
+                "Không thể lưu thuốc: " +
+                GetErrorMessage(ex)
+            );
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+
+    private void SyncIngredients()
+    {
+        List<ThanhPhanThuoc> existingItems =
+            Thuoc.ThanhPhanThuocs
+                .ToList();
+
+        HashSet<int> retainedIds =
+            ThanhPhanTam
+                .Where(x =>
+                    x.ThanhPhanOid > 0
+                )
+                .Select(x =>
+                    x.ThanhPhanOid
+                )
+                .ToHashSet();
+
+        foreach (
+            ThanhPhanThuoc existing
+            in existingItems)
+        {
+            if (!retainedIds.Contains(
+                existing.Oid))
+            {
+                objectSpace.Delete(
+                    existing
+                );
+            }
+        }
+
+        foreach (
+            MedicineIngredientRow row
+            in ThanhPhanTam)
+        {
+            ThanhPhanThuoc thanhPhan;
+
+            if (row.ThanhPhanOid > 0)
+            {
+                thanhPhan =
+                    objectSpace
+                        .GetObjectByKey<ThanhPhanThuoc>(
+                            row.ThanhPhanOid
+                        );
+            }
+            else
+            {
+                thanhPhan =
+                    objectSpace
+                        .CreateObject<ThanhPhanThuoc>();
+            }
+
+            if (thanhPhan == null)
+            {
+                throw new InvalidOperationException(
+                    $"Không thể cập nhật thành phần " +
+                    $"\"{row.TenDuocLieu}\"."
+                );
+            }
+
+            DuocLieu duocLieu =
+                objectSpace
+                    .GetObjectByKey<DuocLieu>(
+                        row.DuocLieuOid
+                    );
+
+            if (duocLieu == null)
+            {
+                throw new InvalidOperationException(
+                    $"Không tìm thấy dược liệu " +
+                    $"\"{row.TenDuocLieu}\"."
+                );
+            }
+
+            thanhPhan.Thuoc =
+                Thuoc;
+
+            thanhPhan.DuocLieu =
+                duocLieu;
+
+            thanhPhan.DonViTinh =
+                duocLieu.DonViTinh;
+
+            thanhPhan.SoLuong =
+                row.SoLuong;
+
+            thanhPhan.GhiChu =
+                string.IsNullOrWhiteSpace(
+                    row.GhiChu)
+                    ? null
+                    : row.GhiChu.Trim();
+
+            thanhPhan.CapNhatThanhTien();
+        }
+    }
+
+    private void DeductHerbStock(
+        decimal soLuongThuocCanTao)
+    {
+        var groups =
+            ThanhPhanTam
+                .GroupBy(x =>
+                    x.DuocLieuOid
+                )
+                .Select(x => new
+                {
+                    DuocLieuOid =
+                        x.Key,
+
+                    SoLuongCanDung =
+                        x.Sum(y =>
+                            y.SoLuong
+                        ) *
+                        soLuongThuocCanTao
+                })
+                .ToList();
+
+        foreach (var group in groups)
+        {
+            DuocLieu duocLieu =
+                objectSpace
+                    .GetObjectByKey<DuocLieu>(
+                        group.DuocLieuOid
+                    );
+
+            if (duocLieu == null)
+            {
+                throw new InvalidOperationException(
+                    "Không tìm thấy dược liệu cần trừ kho."
+                );
+            }
+
+            if (duocLieu.SoLuongTon <
+                group.SoLuongCanDung)
+            {
+                throw new InvalidOperationException(
+                    $"Dược liệu \"{duocLieu.TenDuocLieu}\" " +
+                    "không đủ tồn kho."
+                );
+            }
+
+            duocLieu.SoLuongTon -=
+                group.SoLuongCanDung;
+        }
+    }
+
+    private decimal GetRequiredQuantity(
+        MedicineIngredientRow item)
+    {
+        return
+            item.SoLuong *
+            SoLuongCanTaoLanNay;
+    }
+
+    private string GetRequiredStockClass(
+        MedicineIngredientRow item)
+    {
+        return
+            GetRequiredQuantity(item) >
+            item.TonKho
+                ? "medicine-stock-insufficient"
+                : "medicine-stock-sufficient";
+    }
+
+    private string GetHerbCode(
+        DuocLieu duocLieu)
+    {
+        if (duocLieu == null)
+            return "--";
+
+        if (!string.IsNullOrWhiteSpace(
+            duocLieu.MaDuocLieu))
+        {
+            return duocLieu.MaDuocLieu;
+        }
+
+        return $"DL-{duocLieu.Oid:0000}";
+    }
+
+    private string GetDvtName(
+        DuocLieu duocLieu)
+    {
+        return
+            duocLieu?.DonViTinh?.TenDvt ??
+            "--";
+    }
+
+    private string GetChecklistStockClass(
+        DuocLieu duocLieu)
+    {
+        if (duocLieu == null ||
+            duocLieu.SoLuongTon <= 0)
+        {
+            return
+                "medicine-herb-stock danger";
+        }
+
+        if (duocLieu.SoLuongTon <=
+            duocLieu.TonToiThieu)
+        {
+            return
+                "medicine-herb-stock warning";
+        }
+
+        return
+            "medicine-herb-stock success";
+    }
+
+    private string EmptyText(string value)
+    {
+        return
+            string.IsNullOrWhiteSpace(value)
+                ? "--"
+                : value;
+    }
+
+    private string GetErrorMessage(
+        Exception ex)
+    {
+        Exception current = ex;
+
+        while (
+            current.InnerException != null &&
+            !string.IsNullOrWhiteSpace(
+                current.InnerException.Message))
+        {
+            current =
+                current.InnerException;
+        }
+
+        return current.Message;
+    }
+
+    private void ShowError(string message)
+    {
+        MessageClass =
+            "mf-alert mf-alert-danger";
+
+        Message = message;
+    }
+
+    private string FormatMoney(
+        decimal value)
+    {
+        return
+            value.ToString("n0") +
+            " đ";
+    }
+
+    private string FormatQuantity(
+        decimal value)
+    {
+        return value.ToString("0.##");
+    }
+
+    private string ToInvariant(
+        decimal value)
+    {
+        return value.ToString(
+            CultureInfo.InvariantCulture
+        );
+    }
+
+    private void GoMedicines()
+    {
+        Navigation.NavigateTo(
+            "/staff/medicines"
+        );
+    }
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+
+    private sealed class
+        MedicineIngredientRow
+    {
+        public int ThanhPhanOid
+        {
+            get;
+            set;
+        }
+
+        public int DuocLieuOid
+        {
+            get;
+            set;
+        }
+
+        public string MaDuocLieu
+        {
+            get;
+            set;
+        } = string.Empty;
+
+        public string TenDuocLieu
+        {
+            get;
+            set;
+        } = string.Empty;
+
+        public string DonViTinh
+        {
+            get;
+            set;
+        } = string.Empty;
+
+        public decimal TonKho
+        {
+            get;
+            set;
+        }
+
+        public decimal GiaNhap
+        {
+            get;
+            set;
+        }
+
+        public decimal SoLuong
+        {
+            get;
+            set;
+        }
+
+        public string GhiChu
+        {
+            get;
+            set;
+        } = string.Empty;
+
+        public decimal ThanhTien =>
+            SoLuong * GiaNhap;
+    }
+}

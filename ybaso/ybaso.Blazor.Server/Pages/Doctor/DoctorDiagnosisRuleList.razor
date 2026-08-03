@@ -1,0 +1,926 @@
+﻿@page "/doctor/diagnosis-rules"
+
+@using DevExpress.ExpressApp
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.JSInterop
+@using ybaso.Module.BusinessObjects
+@implements IDisposable
+
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JS
+
+<div class="doctor-page">
+    <DoctorSidebar />
+
+    <main class="doctor-main">
+        <header class="mf-topbar">
+            <div>
+                <h1>Điều kiện chẩn đoán</h1>
+                <p>Quản lý điều kiện dùng để phân tích số đo và suy ra bệnh danh.</p>
+            </div>
+
+            <div class="mf-actions">
+                <div class="mf-search">
+                    <span>🔍</span>
+
+                    <input placeholder="Tìm bệnh danh, huyệt, kiểu giá trị..."
+                           @bind="SearchText"
+                           @bind:event="oninput" />
+                </div>
+
+                <button class="mf-btn mf-btn-primary"
+                        @onclick="StartAdd">
+                    + Thêm điều kiện
+                </button>
+
+                <button class="mf-btn mf-btn-outline"
+                        @onclick="ReloadData">
+                    Làm mới
+                </button>
+            </div>
+        </header>
+
+        @if (!string.IsNullOrWhiteSpace(Message))
+        {
+            <div class="@MessageClass">
+                @Message
+            </div>
+        }
+
+        <section class="doctor-stats">
+            <div class="doctor-stat-card">
+                <div class="doctor-stat-icon blue">🧠</div>
+                <div>
+                    <p>Tổng điều kiện</p>
+                    <h3>@TongDieuKien</h3>
+                </div>
+            </div>
+
+            <div class="doctor-stat-card">
+                <div class="doctor-stat-icon green">✅</div>
+                <div>
+                    <p>Bắt buộc</p>
+                    <h3>@DieuKienBatBuoc</h3>
+                </div>
+            </div>
+
+            <div class="doctor-stat-card">
+                <div class="doctor-stat-icon orange">📘</div>
+                <div>
+                    <p>Bệnh danh liên quan</p>
+                    <h3>@SoBenhDanh</h3>
+                </div>
+            </div>
+
+            <div class="doctor-stat-card">
+                <div class="doctor-stat-icon purple">📍</div>
+                <div>
+                    <p>Huyệt liên quan</p>
+                    <h3>@SoHuyet</h3>
+                </div>
+            </div>
+        </section>
+
+        @if (ShowForm)
+        {
+            <section class="doctor-crud-form">
+                <div class="doctor-crud-header">
+                    <div>
+                        <h2>
+                            @(EditingOid.HasValue
+                                ? "Sửa điều kiện chẩn đoán"
+                                : "Thêm điều kiện chẩn đoán")
+                        </h2>
+
+                        <p>
+                            Chọn bệnh danh, huyệt và khai báo giá trị điều kiện.
+                        </p>
+                    </div>
+
+                    <button class="mf-btn mf-btn-outline"
+                            @onclick="CancelForm">
+                        Đóng
+                    </button>
+                </div>
+
+                <div class="doctor-crud-grid">
+                    <div class="doctor-form-group">
+                        <label>Bệnh danh <span class="required">*</span></label>
+
+                        <select class="doctor-form-control"
+                                @bind="FormBenhOid">
+                            <option value="">
+                                -- Chọn bệnh danh --
+                            </option>
+
+                            @foreach (Benhdanh benh in DanhSachBenhDanh)
+                            {
+                                <option value="@benh.Oid">
+                                    @benh.Ma - @benh.Tenbenh
+                                </option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="doctor-form-group">
+                        <label>Huyệt <span class="required">*</span></label>
+
+                        <select class="doctor-form-control"
+                                @bind="FormHuyetOid">
+                            <option value="">
+                                -- Chọn huyệt --
+                            </option>
+
+                            @foreach (DanhMucHuyet huyet in DanhSachHuyet)
+                            {
+                                <option value="@huyet.Oid">
+                                    @huyet.MaHuyet - @huyet.TenHuyet
+                                </option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="doctor-form-group">
+                        <label>Thứ tự</label>
+
+                        <input class="doctor-form-control"
+                               type="number"
+                               min="0"
+                               @bind="FormThuTu" />
+                    </div>
+
+                    <div class="doctor-form-group">
+                        <label>Nhóm điều kiện</label>
+
+                        <input class="doctor-form-control"
+                               type="number"
+                               min="1"
+                               @bind="FormNhomDieuKien" />
+                    </div>
+
+                    <div class="doctor-form-group">
+                        <label>Kiểu giá trị</label>
+
+                        <select class="doctor-form-control"
+                                @bind="FormKieuGiaTriValue">
+                            @foreach (EnumOption option in KieuGiaTriOptions)
+                            {
+                                <option value="@option.Value">
+                                    @option.Text
+                                </option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="doctor-form-group">
+                        <label>So sánh</label>
+
+                        <select class="doctor-form-control"
+                                @bind="FormSoSanh">
+                            <option value="">-- Chọn phép so sánh --</option>
+                            <option value="=">=</option>
+                            <option value="!=">!=</option>
+                            <option value=">">&gt;</option>
+                            <option value=">=">&gt;=</option>
+                            <option value="<">&lt;</option>
+                            <option value="<=">&lt;=</option>
+                            <option value="Contains">Contains</option>
+                        </select>
+                    </div>
+
+                    <div class="doctor-form-group">
+                        <label>Giá trị chữ</label>
+
+                        <input class="doctor-form-control"
+                               placeholder="VD: +, -, Âm, Dương..."
+                               @bind="FormGiaTri" />
+                    </div>
+
+                    <div class="doctor-form-group">
+                        <label>Giá trị số</label>
+
+                        <input class="doctor-form-control"
+                               type="number"
+                               step="0.01"
+                               @bind="FormGiaTriSo" />
+                    </div>
+
+                    <div class="doctor-form-group full">
+                        <label>Công thức gốc</label>
+
+                        <textarea class="doctor-form-control"
+                                  placeholder="Nhập công thức gốc..."
+                                  @bind="FormCongThucGoc">
+                        </textarea>
+                    </div>
+
+                    <div class="doctor-form-group full">
+                        <label>Diễn giải</label>
+
+                        <textarea class="doctor-form-control"
+                                  placeholder="Nhập diễn giải điều kiện..."
+                                  @bind="FormDienGiai">
+                        </textarea>
+                    </div>
+
+                    <div class="doctor-form-group full">
+                        <label class="doctor-checkbox">
+                            <input type="checkbox"
+                                   @bind="FormBatBuoc" />
+
+                            <span>Điều kiện bắt buộc</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="doctor-crud-actions">
+                    <button class="mf-btn mf-btn-outline"
+                            @onclick="CancelForm">
+                        Hủy
+                    </button>
+
+                    <button class="mf-btn mf-btn-primary"
+                            @onclick="SaveItem">
+                        💾 Lưu điều kiện
+                    </button>
+                </div>
+            </section>
+        }
+
+        <section class="mf-card">
+            <div class="mf-card-head">
+                <div>
+                    <h2>Danh sách điều kiện</h2>
+
+                    <p>
+                        Hiển thị @DanhSachLoc.Count()
+                        trong tổng số @TongDieuKien điều kiện.
+                    </p>
+                </div>
+            </div>
+
+            <div class="doctor-table-scroll">
+                <table class="mf-table doctor-diagnosis-table">
+                    <thead>
+                        <tr>
+                            <th>Thứ tự</th>
+                            <th>Bệnh danh</th>
+                            <th>Huyệt</th>
+                            <th>Nhóm</th>
+                            <th>Kiểu giá trị</th>
+                            <th>Điều kiện</th>
+                            <th>Bắt buộc</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @foreach (Dieukien item in DanhSachLoc)
+                        {
+                            <tr>
+                                <td>@item.ThuTu</td>
+
+                                <td>
+                                    <div class="doctor-cell-main">
+                                        <div class="doctor-circle">BD</div>
+
+                                        <div>
+                                            <strong>
+                                                @GetTenBenhDanh(item)
+                                            </strong>
+
+                                            <small>
+                                                @GetMaBenhDanh(item)
+                                            </small>
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <td>
+                                    <span class="doctor-pill blue">
+                                        @GetTenHuyet(item)
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <span class="doctor-pill orange">
+                                        Nhóm @item.NhomDieuKien
+                                    </span>
+                                </td>
+
+                                <td>@item.Kieugiatri</td>
+
+                                <td>
+                                    <strong>@item.Sosanh</strong>
+                                    <span>@GetGiaTriText(item)</span>
+                                </td>
+
+                                <td>
+                                    <span class="@GetBatBuocClass(item.BatBuoc)">
+                                        @(item.BatBuoc
+                                            ? "Bắt buộc"
+                                            : "Không bắt buộc")
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <div class="doctor-row-actions">
+                                        <button class="doctor-table-btn add"
+                                                @onclick="StartAdd">
+                                            Thêm
+                                        </button>
+
+                                        <button class="doctor-table-btn edit"
+                                                @onclick="() => StartEdit(item)">
+                                            Sửa
+                                        </button>
+
+                                        <button class="doctor-table-btn delete"
+                                                @onclick="() => DeleteItem(item)">
+                                            Xóa
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (!DanhSachLoc.Any())
+            {
+                <div class="mf-empty">
+                    Không tìm thấy điều kiện phù hợp.
+                </div>
+            }
+        </section>
+    </main>
+</div>
+
+@code {
+    private IObjectSpace objectSpace;
+
+    private string CurrentUserName = "Bác sĩ";
+    private string SearchText = "";
+
+    private string Message = "";
+    private string MessageClass = "mf-alert mf-alert-success";
+
+    private List<Dieukien> DanhSachDieuKien = new();
+    private List<Benhdanh> DanhSachBenhDanh = new();
+    private List<DanhMucHuyet> DanhSachHuyet = new();
+
+    private bool ShowForm;
+    private int? EditingOid;
+
+    private string FormBenhOid = "";
+    private string FormHuyetOid = "";
+
+    private int FormThuTu;
+    private int FormNhomDieuKien = 1;
+    private bool FormBatBuoc = true;
+
+    private string FormKieuGiaTriValue = "0";
+    private string FormSoSanh = "";
+    private string FormGiaTri = "";
+    private double FormGiaTriSo;
+    private string FormCongThucGoc = "";
+    private string FormDienGiai = "";
+
+    private List<EnumOption> KieuGiaTriOptions =>
+        GetKieuGiaTriOptions();
+
+    private int TongDieuKien =>
+        DanhSachDieuKien.Count;
+
+    private int DieuKienBatBuoc =>
+        DanhSachDieuKien.Count(x => x.BatBuoc);
+
+    private int SoBenhDanh =>
+        DanhSachDieuKien
+            .Where(x => x.Ben != null)
+            .Select(x => x.Ben.Oid)
+            .Distinct()
+            .Count();
+
+    private int SoHuyet =>
+        DanhSachDieuKien
+            .Where(x => x.Huyet != null)
+            .Select(x => x.Huyet.Oid)
+            .Distinct()
+            .Count();
+
+    private IEnumerable<Dieukien> DanhSachLoc
+    {
+        get
+        {
+            IEnumerable<Dieukien> query =
+                DanhSachDieuKien
+                    .OrderBy(x => x.Ben?.Stt ?? 999999)
+                    .ThenBy(x => x.NhomDieuKien)
+                    .ThenBy(x => x.ThuTu);
+
+            if (string.IsNullOrWhiteSpace(SearchText))
+                return query;
+
+            string keyword =
+                SearchText.Trim().ToLowerInvariant();
+
+            return query.Where(x =>
+                GetTenBenhDanh(x)
+                    .ToLowerInvariant()
+                    .Contains(keyword) ||
+
+                GetMaBenhDanh(x)
+                    .ToLowerInvariant()
+                    .Contains(keyword) ||
+
+                GetTenHuyet(x)
+                    .ToLowerInvariant()
+                    .Contains(keyword) ||
+
+                (x.Sosanh ?? "")
+                    .ToLowerInvariant()
+                    .Contains(keyword) ||
+
+                (x.Giatri ?? "")
+                    .ToLowerInvariant()
+                    .Contains(keyword) ||
+
+                (x.DienGiai ?? "")
+                    .ToLowerInvariant()
+                    .Contains(keyword) ||
+
+                x.Kieugiatri
+                    .ToString()
+                    .ToLowerInvariant()
+                    .Contains(keyword)
+            );
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        objectSpace =
+            ObjectSpaceFactory.CreateObjectSpace(
+                typeof(Dieukien)
+            );
+
+        var authState =
+            await AuthenticationStateProvider
+                .GetAuthenticationStateAsync();
+
+        CurrentUserName =
+            authState.User?.Identity?.Name
+            ?? "Bác sĩ";
+
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        DanhSachDieuKien =
+            objectSpace.GetObjects<Dieukien>()
+                .OrderBy(x => x.Ben?.Stt ?? 999999)
+                .ThenBy(x => x.NhomDieuKien)
+                .ThenBy(x => x.ThuTu)
+                .ToList();
+
+        DanhSachBenhDanh =
+            objectSpace.GetObjects<Benhdanh>()
+                .Where(x => x.SuDung)
+                .OrderBy(x => x.Stt)
+                .ThenBy(x => x.Tenbenh)
+                .ToList();
+
+        DanhSachHuyet =
+            objectSpace.GetObjects<DanhMucHuyet>()
+                .Where(x => x.SuDung)
+                .OrderBy(x => x.ThuTu)
+                .ThenBy(x => x.TenHuyet)
+                .ToList();
+    }
+
+    private void ReloadData()
+    {
+        objectSpace.Refresh();
+        LoadData();
+
+        Message = "";
+    }
+
+    private void StartAdd()
+    {
+        EditingOid = null;
+
+        FormBenhOid = "";
+        FormHuyetOid = "";
+
+        FormThuTu =
+            DanhSachDieuKien.Count == 0
+                ? 1
+                : DanhSachDieuKien.Max(x => x.ThuTu) + 1;
+
+        FormNhomDieuKien = 1;
+        FormBatBuoc = true;
+
+        FormKieuGiaTriValue =
+            KieuGiaTriOptions.FirstOrDefault()?.Value
+            ?? "0";
+
+        FormSoSanh = "";
+        FormGiaTri = "";
+        FormGiaTriSo = 0;
+        FormCongThucGoc = "";
+        FormDienGiai = "";
+
+        Message = "";
+        ShowForm = true;
+    }
+
+    private void StartEdit(Dieukien item)
+    {
+        if (item == null)
+            return;
+
+        EditingOid = item.Oid;
+
+        FormBenhOid =
+            item.Ben?.Oid.ToString() ?? "";
+
+        FormHuyetOid =
+            item.Huyet?.Oid.ToString() ?? "";
+
+        FormThuTu = item.ThuTu;
+        FormNhomDieuKien = item.NhomDieuKien;
+        FormBatBuoc = item.BatBuoc;
+
+        FormKieuGiaTriValue =
+            Convert.ToInt32(item.Kieugiatri)
+                .ToString();
+
+        FormSoSanh = item.Sosanh ?? "";
+        FormGiaTri = item.Giatri ?? "";
+        FormGiaTriSo = item.GiaTriSo;
+        FormCongThucGoc = item.CongThucGoc ?? "";
+        FormDienGiai = item.DienGiai ?? "";
+
+        Message = "";
+        ShowForm = true;
+    }
+
+    private void CancelForm()
+    {
+        ShowForm = false;
+        EditingOid = null;
+        Message = "";
+    }
+
+    private void SaveItem()
+    {
+        try
+        {
+            if (!int.TryParse(
+                    FormBenhOid,
+                    out int benhOid))
+            {
+                ShowError("Vui lòng chọn bệnh danh.");
+                return;
+            }
+
+            if (!int.TryParse(
+                    FormHuyetOid,
+                    out int huyetOid))
+            {
+                ShowError("Vui lòng chọn huyệt.");
+                return;
+            }
+
+            Benhdanh benh =
+                objectSpace.GetObjectByKey<Benhdanh>(
+                    benhOid
+                );
+
+            DanhMucHuyet huyet =
+                objectSpace.GetObjectByKey<DanhMucHuyet>(
+                    huyetOid
+                );
+
+            if (benh == null)
+            {
+                ShowError("Không tìm thấy bệnh danh đã chọn.");
+                return;
+            }
+
+            if (huyet == null)
+            {
+                ShowError("Không tìm thấy huyệt đã chọn.");
+                return;
+            }
+
+            Dieukien item;
+
+            if (EditingOid.HasValue)
+            {
+                item =
+                    objectSpace.GetObjectByKey<Dieukien>(
+                        EditingOid.Value
+                    );
+
+                if (item == null)
+                {
+                    ShowError("Không tìm thấy điều kiện cần sửa.");
+                    return;
+                }
+            }
+            else
+            {
+                item =
+                    objectSpace.CreateObject<Dieukien>();
+            }
+
+            item.Ben = benh;
+            item.Huyet = huyet;
+            item.ThuTu = FormThuTu;
+            item.NhomDieuKien =
+                FormNhomDieuKien <= 0
+                    ? 1
+                    : FormNhomDieuKien;
+
+            item.BatBuoc = FormBatBuoc;
+            item.Sosanh = FormSoSanh?.Trim();
+            item.Giatri = FormGiaTri?.Trim();
+            item.GiaTriSo = FormGiaTriSo;
+            item.CongThucGoc = FormCongThucGoc?.Trim();
+            item.DienGiai = FormDienGiai?.Trim();
+
+            SetKieuGiaTri(
+                item,
+                FormKieuGiaTriValue
+            );
+
+            objectSpace.CommitChanges();
+            objectSpace.Refresh();
+            LoadData();
+
+            ShowForm = false;
+            EditingOid = null;
+
+            ShowSuccess(
+                "Đã lưu điều kiện chẩn đoán thành công."
+            );
+        }
+        catch (Exception ex)
+        {
+            TryRollback();
+
+            ShowError(
+                "Không thể lưu điều kiện chẩn đoán: "
+                + ex.Message
+            );
+        }
+    }
+
+    private async Task DeleteItem(Dieukien item)
+    {
+        if (item == null)
+            return;
+
+        string tenBenh =
+            item.Ben?.Tenbenh ?? "điều kiện này";
+
+        string tenHuyet =
+            item.Huyet?.TenHuyet ?? "";
+
+        bool confirmed =
+            await JS.InvokeAsync<bool>(
+                "confirm",
+                $"Bạn có chắc muốn xóa điều kiện '{tenBenh} - {tenHuyet}' không?"
+            );
+
+        if (!confirmed)
+            return;
+
+        try
+        {
+            objectSpace.Delete(item);
+            objectSpace.CommitChanges();
+            objectSpace.Refresh();
+            LoadData();
+
+            if (EditingOid == item.Oid)
+                CancelForm();
+
+            ShowSuccess(
+                "Đã xóa điều kiện chẩn đoán thành công."
+            );
+        }
+        catch (Exception ex)
+        {
+            TryRollback();
+            objectSpace.Refresh();
+            LoadData();
+
+            ShowError(
+                "Không thể xóa điều kiện chẩn đoán: "
+                + ex.Message
+            );
+        }
+    }
+
+    private List<EnumOption> GetKieuGiaTriOptions()
+    {
+        var result = new List<EnumOption>();
+
+        var property =
+            typeof(Dieukien).GetProperty(
+                nameof(Dieukien.Kieugiatri)
+            );
+
+        Type enumType =
+            property?.PropertyType;
+
+        enumType =
+            Nullable.GetUnderlyingType(enumType)
+            ?? enumType;
+
+        if (enumType == null || !enumType.IsEnum)
+        {
+            result.Add(
+                new EnumOption
+                {
+                    Value = "0",
+                    Text = "0"
+                }
+            );
+
+            return result;
+        }
+
+        foreach (object value in Enum.GetValues(enumType))
+        {
+            result.Add(
+                new EnumOption
+                {
+                    Value =
+                        Convert.ToInt32(value).ToString(),
+
+                    Text =
+                        Enum.GetName(enumType, value)
+                        ?? value.ToString()
+                }
+            );
+        }
+
+        return result;
+    }
+
+    private void SetKieuGiaTri(
+        Dieukien item,
+        string rawValue)
+    {
+        if (item == null)
+            return;
+
+        var property =
+            typeof(Dieukien).GetProperty(
+                nameof(Dieukien.Kieugiatri)
+            );
+
+        if (property == null || !property.CanWrite)
+            return;
+
+        Type enumType =
+            Nullable.GetUnderlyingType(
+                property.PropertyType
+            )
+            ?? property.PropertyType;
+
+        if (!enumType.IsEnum)
+            return;
+
+        if (!int.TryParse(rawValue, out int value))
+            value = 0;
+
+        object enumValue =
+            Enum.ToObject(enumType, value);
+
+        property.SetValue(item, enumValue);
+    }
+
+    private void TryRollback()
+    {
+        try
+        {
+            objectSpace?.Rollback();
+        }
+        catch
+        {
+        }
+    }
+
+    private void ShowSuccess(string text)
+    {
+        MessageClass = "mf-alert mf-alert-success";
+        Message = text;
+    }
+
+    private void ShowError(string text)
+    {
+        MessageClass = "mf-alert mf-alert-danger";
+        Message = text;
+    }
+
+    private string GetTenBenhDanh(Dieukien item)
+    {
+        return item?.Ben?.Tenbenh
+            ?? "Chưa chọn bệnh danh";
+    }
+
+    private string GetMaBenhDanh(Dieukien item)
+    {
+        return item?.Ben?.Ma
+            ?? "Chưa có mã bệnh";
+    }
+
+    private string GetTenHuyet(Dieukien item)
+    {
+        return item?.Huyet?.TenHuyet
+            ?? "Chưa chọn huyệt";
+    }
+
+    private string GetGiaTriText(Dieukien item)
+    {
+        if (item == null)
+            return "--";
+
+        if (!string.IsNullOrWhiteSpace(item.Giatri))
+            return item.Giatri;
+
+        return item.GiaTriSo.ToString("0.##");
+    }
+
+    private string GetBatBuocClass(bool value)
+    {
+        return value
+            ? "doctor-status success"
+            : "doctor-status warning";
+    }
+
+    private string GetInitials(string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+            return "BS";
+
+        string[] parts =
+            fullName.Split(
+                ' ',
+                StringSplitOptions.RemoveEmptyEntries
+            );
+
+        if (parts.Length == 1)
+        {
+            return parts[0]
+                .Substring(
+                    0,
+                    Math.Min(2, parts[0].Length)
+                )
+                .ToUpperInvariant();
+        }
+
+        return
+            $"{parts[0][0]}{parts[^1][0]}"
+                .ToUpperInvariant();
+    }
+
+    private void GoPatients() =>
+        Navigation.NavigateTo("/doctor/patients");
+
+    private void GoExams() =>
+        Navigation.NavigateTo("/doctor/exams");
+
+    private void GoDiseases() =>
+        Navigation.NavigateTo("/doctor/diseases");
+
+    private void GoAcupoints() =>
+        Navigation.NavigateTo("/doctor/acupoints");
+
+    private void GoDiagnosisRules() =>
+        Navigation.NavigateTo("/doctor/diagnosis-rules");
+
+    private void GoTreatmentPlans() =>
+        Navigation.NavigateTo("/doctor/treatment-plans");
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+
+    private class EnumOption
+    {
+        public string Value { get; set; } = "";
+        public string Text { get; set; } = "";
+    }
+}

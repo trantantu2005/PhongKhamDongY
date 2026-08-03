@@ -1,0 +1,710 @@
+﻿@page "/doctor/acupoints"
+
+@using DevExpress.ExpressApp
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.JSInterop
+@using ybaso.Module.BusinessObjects
+@implements IDisposable
+
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JS
+
+<div class="doctor-page">
+
+
+    <DoctorSidebar />
+
+    <main class="doctor-main">
+        <header class="mf-topbar">
+            <div>
+                <h1>Danh mục huyệt</h1>
+                <p>Quản lý huyệt, nhóm chi và mô tả sử dụng trong chẩn đoán.</p>
+            </div>
+
+            <div class="mf-actions">
+                <div class="mf-search">
+                    <span>🔍</span>
+
+                    <input placeholder="Tìm mã huyệt, tên huyệt, nhóm..."
+                           @bind="SearchText"
+                           @bind:event="oninput" />
+                </div>
+
+                <button class="mf-btn mf-btn-primary"
+                        @onclick="StartAdd">
+                    + Thêm huyệt
+                </button>
+
+                <button class="mf-btn mf-btn-outline"
+                        @onclick="ReloadData">
+                    Làm mới
+                </button>
+            </div>
+        </header>
+
+        @if (!string.IsNullOrWhiteSpace(Message))
+        {
+            <div class="@MessageClass">
+                @Message
+            </div>
+        }
+
+        <section class="doctor-stats">
+            <div class="doctor-stat-card">
+                <div class="doctor-stat-icon blue">📍</div>
+                <div>
+                    <p>Tổng huyệt</p>
+                    <h3>@TongHuyet</h3>
+                </div>
+            </div>
+
+            <div class="doctor-stat-card">
+                <div class="doctor-stat-icon orange">💪</div>
+                <div>
+                    <p>Chi trên</p>
+                    <h3>@ChiTren</h3>
+                </div>
+            </div>
+
+            <div class="doctor-stat-card">
+                <div class="doctor-stat-icon purple">🦵</div>
+                <div>
+                    <p>Chi dưới</p>
+                    <h3>@ChiDuoi</h3>
+                </div>
+            </div>
+
+            <div class="doctor-stat-card">
+                <div class="doctor-stat-icon green">✅</div>
+                <div>
+                    <p>Đang sử dụng</p>
+                    <h3>@DangSuDung</h3>
+                </div>
+            </div>
+        </section>
+
+        @if (ShowForm)
+        {
+            <section class="doctor-crud-form">
+                <div class="doctor-crud-header">
+                    <div>
+                        <h2>
+                            @(EditingOid.HasValue
+                                ? "Sửa danh mục huyệt"
+                                : "Thêm danh mục huyệt")
+                        </h2>
+
+                        <p>
+                            Nhập đầy đủ thông tin huyệt trước khi lưu.
+                        </p>
+                    </div>
+
+                    <button class="mf-btn mf-btn-outline"
+                            @onclick="CancelForm">
+                        Đóng
+                    </button>
+                </div>
+
+                <div class="doctor-crud-grid">
+                    <div class="doctor-form-group">
+                        <label>Thứ tự</label>
+
+                        <input class="doctor-form-control"
+                               type="number"
+                               min="0"
+                               @bind="FormThuTu" />
+                    </div>
+
+                    <div class="doctor-form-group">
+                        <label>Mã huyệt <span class="required">*</span></label>
+
+                        <input class="doctor-form-control"
+                               placeholder="VD: H001"
+                               @bind="FormMaHuyet" />
+                    </div>
+
+                    <div class="doctor-form-group full">
+                        <label>Tên huyệt <span class="required">*</span></label>
+
+                        <input class="doctor-form-control"
+                               placeholder="Nhập tên huyệt"
+                               @bind="FormTenHuyet" />
+                    </div>
+
+                    <div class="doctor-form-group">
+                        <label>Nhóm chi</label>
+
+                        <select class="doctor-form-control"
+                                @bind="FormNhomChiValue">
+                            <option value="ChiTren">Chi trên</option>
+                            <option value="ChiDuoi">Chi dưới</option>
+                        </select>
+                    </div>
+
+                    <div class="doctor-form-group">
+                        <label>Nhóm</label>
+
+                        <input class="doctor-form-control"
+                               placeholder="Nhập tên nhóm"
+                               @bind="FormNhom" />
+                    </div>
+
+                    <div class="doctor-form-group full">
+                        <label>Mô tả</label>
+
+                        <textarea class="doctor-form-control"
+                                  placeholder="Nhập mô tả..."
+                                  @bind="FormMoTa">
+                        </textarea>
+                    </div>
+
+                    <div class="doctor-form-group full">
+                        <label class="doctor-checkbox">
+                            <input type="checkbox"
+                                   @bind="FormSuDung" />
+
+                            <span>Đang sử dụng</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="doctor-crud-actions">
+                    <button class="mf-btn mf-btn-outline"
+                            @onclick="CancelForm">
+                        Hủy
+                    </button>
+
+                    <button class="mf-btn mf-btn-primary"
+                            @onclick="SaveItem">
+                        💾 Lưu huyệt
+                    </button>
+                </div>
+            </section>
+        }
+
+        <section class="mf-card">
+            <div class="mf-card-head">
+                <div>
+                    <h2>Danh sách huyệt</h2>
+
+                    <p>
+                        Hiển thị @DanhSachLoc.Count()
+                        trong tổng số @TongHuyet huyệt.
+                    </p>
+                </div>
+            </div>
+
+            <div class="doctor-table-scroll">
+                <table class="mf-table">
+                    <thead>
+                        <tr>
+                            <th>Thứ tự</th>
+                            <th>Mã huyệt</th>
+                            <th>Tên huyệt</th>
+                            <th>Nhóm chi</th>
+                            <th>Nhóm</th>
+                            <th>Mô tả</th>
+                            <th>Sử dụng</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @foreach (DanhMucHuyet item in DanhSachLoc)
+                        {
+                            <tr>
+                                <td>@item.ThuTu</td>
+
+                                <td>
+                                    <span class="doctor-pill blue">
+                                        @EmptyText(item.MaHuyet)
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <div class="doctor-cell-main">
+                                        <div class="doctor-circle patient">
+                                            H
+                                        </div>
+
+                                        <div>
+                                            <strong>
+                                                @EmptyText(item.TenHuyet)
+                                            </strong>
+
+                                            <small>
+                                                ID: H-@item.Oid.ToString("0000")
+                                            </small>
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <td>
+                                    <span class="@GetNhomChiClass(item.NhomChi)">
+                                        @GetNhomChiText(item.NhomChi)
+                                    </span>
+                                </td>
+
+                                <td>@EmptyText(item.Nhom)</td>
+
+                                <td>@ShortText(item.MoTa, 100)</td>
+
+                                <td>
+                                    <span class="@GetUseBadgeClass(item.SuDung)">
+                                        @(item.SuDung
+                                            ? "Đang dùng"
+                                            : "Tạm tắt")
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <div class="doctor-row-actions">
+                                        <button class="doctor-table-btn add"
+                                                @onclick="StartAdd">
+                                            Thêm
+                                        </button>
+
+                                        <button class="doctor-table-btn edit"
+                                                @onclick="() => StartEdit(item)">
+                                            Sửa
+                                        </button>
+
+                                        <button class="doctor-table-btn delete"
+                                                @onclick="() => DeleteItem(item)">
+                                            Xóa
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (!DanhSachLoc.Any())
+            {
+                <div class="mf-empty">
+                    Không tìm thấy huyệt phù hợp.
+                </div>
+            }
+        </section>
+    </main>
+</div>
+
+@code {
+    private IObjectSpace objectSpace;
+
+    private string CurrentUserName = "Bác sĩ";
+    private string SearchText = "";
+
+    private string Message = "";
+    private string MessageClass = "mf-alert mf-alert-success";
+
+    private List<DanhMucHuyet> DanhSachHuyet = new();
+
+    private bool ShowForm;
+    private int? EditingOid;
+
+    private int FormThuTu;
+    private string FormMaHuyet = "";
+    private string FormTenHuyet = "";
+    private string FormNhomChiValue = "ChiTren";
+    private string FormNhom = "";
+    private string FormMoTa = "";
+    private bool FormSuDung = true;
+
+    private int TongHuyet =>
+        DanhSachHuyet.Count;
+
+    private int ChiTren =>
+        DanhSachHuyet.Count(
+            x => x.NhomChi == NhomChiDo.ChiTren
+        );
+
+    private int ChiDuoi =>
+        DanhSachHuyet.Count(
+            x => x.NhomChi == NhomChiDo.ChiDuoi
+        );
+
+    private int DangSuDung =>
+        DanhSachHuyet.Count(x => x.SuDung);
+
+    private IEnumerable<DanhMucHuyet> DanhSachLoc
+    {
+        get
+        {
+            IEnumerable<DanhMucHuyet> query =
+                DanhSachHuyet
+                    .OrderBy(x => x.ThuTu)
+                    .ThenBy(x => x.TenHuyet);
+
+            if (string.IsNullOrWhiteSpace(SearchText))
+                return query;
+
+            string keyword =
+                SearchText.Trim().ToLowerInvariant();
+
+            return query.Where(x =>
+                (x.MaHuyet ?? "").ToLowerInvariant().Contains(keyword) ||
+                (x.TenHuyet ?? "").ToLowerInvariant().Contains(keyword) ||
+                (x.Nhom ?? "").ToLowerInvariant().Contains(keyword) ||
+                (x.MoTa ?? "").ToLowerInvariant().Contains(keyword) ||
+                GetNhomChiText(x.NhomChi)
+                    .ToLowerInvariant()
+                    .Contains(keyword)
+            );
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        objectSpace =
+            ObjectSpaceFactory.CreateObjectSpace(
+                typeof(DanhMucHuyet)
+            );
+
+        var authState =
+            await AuthenticationStateProvider
+                .GetAuthenticationStateAsync();
+
+        CurrentUserName =
+            authState.User?.Identity?.Name
+            ?? "Bác sĩ";
+
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        DanhSachHuyet =
+            objectSpace.GetObjects<DanhMucHuyet>()
+                .OrderBy(x => x.ThuTu)
+                .ThenBy(x => x.TenHuyet)
+                .ToList();
+    }
+
+    private void ReloadData()
+    {
+        objectSpace.Refresh();
+        LoadData();
+
+        Message = "";
+    }
+
+    private void StartAdd()
+    {
+        EditingOid = null;
+
+        FormThuTu =
+            DanhSachHuyet.Count == 0
+                ? 1
+                : DanhSachHuyet.Max(x => x.ThuTu) + 1;
+
+        FormMaHuyet = "";
+        FormTenHuyet = "";
+        FormNhomChiValue = "ChiTren";
+        FormNhom = "";
+        FormMoTa = "";
+        FormSuDung = true;
+
+        Message = "";
+        ShowForm = true;
+    }
+
+    private void StartEdit(DanhMucHuyet item)
+    {
+        if (item == null)
+            return;
+
+        EditingOid = item.Oid;
+
+        FormThuTu = item.ThuTu;
+        FormMaHuyet = item.MaHuyet ?? "";
+        FormTenHuyet = item.TenHuyet ?? "";
+
+        FormNhomChiValue =
+            item.NhomChi == NhomChiDo.ChiDuoi
+                ? "ChiDuoi"
+                : "ChiTren";
+
+        FormNhom = item.Nhom ?? "";
+        FormMoTa = item.MoTa ?? "";
+        FormSuDung = item.SuDung;
+
+        Message = "";
+        ShowForm = true;
+    }
+
+    private void CancelForm()
+    {
+        ShowForm = false;
+        EditingOid = null;
+        Message = "";
+    }
+
+    private void SaveItem()
+    {
+        try
+        {
+            string maHuyet =
+                FormMaHuyet?.Trim() ?? "";
+
+            string tenHuyet =
+                FormTenHuyet?.Trim() ?? "";
+
+            if (string.IsNullOrWhiteSpace(maHuyet))
+            {
+                ShowError("Vui lòng nhập mã huyệt.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(tenHuyet))
+            {
+                ShowError("Vui lòng nhập tên huyệt.");
+                return;
+            }
+
+            bool trungMa =
+                DanhSachHuyet.Any(x =>
+                    x.Oid != EditingOid &&
+                    string.Equals(
+                        x.MaHuyet?.Trim(),
+                        maHuyet,
+                        StringComparison.OrdinalIgnoreCase
+                    )
+                );
+
+            if (trungMa)
+            {
+                ShowError(
+                    $"Mã huyệt '{maHuyet}' đã tồn tại."
+                );
+                return;
+            }
+
+            DanhMucHuyet item;
+
+            if (EditingOid.HasValue)
+            {
+                item =
+                    objectSpace.GetObjectByKey<DanhMucHuyet>(
+                        EditingOid.Value
+                    );
+
+                if (item == null)
+                {
+                    ShowError("Không tìm thấy huyệt cần sửa.");
+                    return;
+                }
+            }
+            else
+            {
+                item =
+                    objectSpace.CreateObject<DanhMucHuyet>();
+            }
+
+            item.ThuTu = FormThuTu;
+            item.MaHuyet = maHuyet;
+            item.TenHuyet = tenHuyet;
+
+            item.NhomChi =
+                FormNhomChiValue == "ChiDuoi"
+                    ? NhomChiDo.ChiDuoi
+                    : NhomChiDo.ChiTren;
+
+            item.Nhom = FormNhom?.Trim();
+            item.MoTa = FormMoTa?.Trim();
+            item.SuDung = FormSuDung;
+
+            objectSpace.CommitChanges();
+            objectSpace.Refresh();
+            LoadData();
+
+            ShowForm = false;
+            EditingOid = null;
+
+            ShowSuccess(
+                "Đã lưu danh mục huyệt thành công."
+            );
+        }
+        catch (Exception ex)
+        {
+            TryRollback();
+
+            ShowError(
+                "Không thể lưu danh mục huyệt: "
+                + ex.Message
+            );
+        }
+    }
+
+    private async Task DeleteItem(DanhMucHuyet item)
+    {
+        if (item == null)
+            return;
+
+        bool dangDuocDung =
+            objectSpace.GetObjects<Dieukien>()
+                .Any(x => x.Huyet == item);
+
+        if (dangDuocDung)
+        {
+            ShowError(
+                $"Không thể xóa huyệt '{item.TenHuyet}' vì huyệt "
+                + "đang được sử dụng trong điều kiện chẩn đoán."
+            );
+            return;
+        }
+
+        bool confirmed =
+            await JS.InvokeAsync<bool>(
+                "confirm",
+                $"Bạn có chắc muốn xóa huyệt '{item.TenHuyet}' không?"
+            );
+
+        if (!confirmed)
+            return;
+
+        try
+        {
+            objectSpace.Delete(item);
+            objectSpace.CommitChanges();
+            objectSpace.Refresh();
+            LoadData();
+
+            if (EditingOid == item.Oid)
+                CancelForm();
+
+            ShowSuccess(
+                "Đã xóa danh mục huyệt thành công."
+            );
+        }
+        catch (Exception ex)
+        {
+            TryRollback();
+            objectSpace.Refresh();
+            LoadData();
+
+            ShowError(
+                "Không thể xóa huyệt vì dữ liệu đang được sử dụng. "
+                + ex.Message
+            );
+        }
+    }
+
+    private void TryRollback()
+    {
+        try
+        {
+            objectSpace?.Rollback();
+        }
+        catch
+        {
+        }
+    }
+
+    private void ShowSuccess(string text)
+    {
+        MessageClass = "mf-alert mf-alert-success";
+        Message = text;
+    }
+
+    private void ShowError(string text)
+    {
+        MessageClass = "mf-alert mf-alert-danger";
+        Message = text;
+    }
+
+    private string EmptyText(string value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? "Chưa có dữ liệu"
+            : value;
+    }
+
+    private string ShortText(
+        string value,
+        int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return "Chưa có dữ liệu";
+
+        value = value.Trim();
+
+        return value.Length <= maxLength
+            ? value
+            : value.Substring(0, maxLength) + "...";
+    }
+
+    private string GetNhomChiText(NhomChiDo nhomChi)
+    {
+        return nhomChi == NhomChiDo.ChiDuoi
+            ? "Chi dưới"
+            : "Chi trên";
+    }
+
+    private string GetNhomChiClass(NhomChiDo nhomChi)
+    {
+        return nhomChi == NhomChiDo.ChiDuoi
+            ? "doctor-status warning"
+            : "doctor-status info";
+    }
+
+    private string GetUseBadgeClass(bool value)
+    {
+        return value
+            ? "doctor-status success"
+            : "doctor-status danger";
+    }
+
+    private string GetInitials(string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+            return "BS";
+
+        string[] parts =
+            fullName.Split(
+                ' ',
+                StringSplitOptions.RemoveEmptyEntries
+            );
+
+        if (parts.Length == 1)
+        {
+            return parts[0]
+                .Substring(
+                    0,
+                    Math.Min(2, parts[0].Length)
+                )
+                .ToUpperInvariant();
+        }
+
+        return
+            $"{parts[0][0]}{parts[^1][0]}"
+                .ToUpperInvariant();
+    }
+
+    private void GoPatients() =>
+        Navigation.NavigateTo("/doctor/patients");
+
+    private void GoExams() =>
+        Navigation.NavigateTo("/doctor/exams");
+
+    private void GoDiseases() =>
+        Navigation.NavigateTo("/doctor/diseases");
+
+    private void GoAcupoints() =>
+        Navigation.NavigateTo("/doctor/acupoints");
+
+    private void GoDiagnosisRules() =>
+        Navigation.NavigateTo("/doctor/diagnosis-rules");
+
+    private void GoTreatmentPlans() =>
+        Navigation.NavigateTo("/doctor/treatment-plans");
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+}

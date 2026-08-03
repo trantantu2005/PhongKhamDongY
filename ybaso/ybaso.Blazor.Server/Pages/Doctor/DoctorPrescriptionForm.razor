@@ -1,0 +1,938 @@
+﻿@page "/doctor/exams/{CaKhamOid:int}/prescriptions/new"
+
+@using DevExpress.ExpressApp
+@using Microsoft.AspNetCore.Components.Authorization
+@using ybaso.Module.BusinessObjects
+@implements IDisposable
+
+@inject IObjectSpaceFactory ObjectSpaceFactory
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<div class="doctor-page">
+    <DoctorSidebar />
+
+    <main class="doctor-main">
+        @if (CaKham == null)
+        {
+            <div class="mf-alert mf-alert-danger">
+                @if (!string.IsNullOrWhiteSpace(Message))
+                {
+                    @Message
+                }
+                else
+                {
+                    <text>
+                        Không tìm thấy ca khám để kê đơn thuốc.
+                    </text>
+                }
+            </div>
+
+            <button class="mf-btn mf-btn-outline"
+                    @onclick="GoExams">
+                ← Quay lại danh sách ca khám
+            </button>
+        }
+        else
+        {
+            <header class="mf-topbar">
+                <div>
+                    <h1>Thêm đơn thuốc</h1>
+
+                    <p>
+                        Bệnh nhân: @TenBenhNhan
+                        • Ca khám:
+                        @CaKham.NgayCT.ToString(
+                            "dd/MM/yyyy HH:mm"
+                        )
+                    </p>
+                </div>
+
+                <div class="mf-actions">
+                    <button class="mf-btn mf-btn-outline"
+                            @onclick="BackToExam">
+                        ← Quay lại ca khám
+                    </button>
+
+                    <button class="mf-btn mf-btn-primary"
+                            @onclick="SavePrescription">
+                        💾 Lưu đơn thuốc
+                    </button>
+                </div>
+            </header>
+
+            @if (!string.IsNullOrWhiteSpace(Message))
+            {
+                <div class="@MessageClass">
+                    @Message
+                </div>
+            }
+
+            <section class="doctor-stats">
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon blue">
+                        👤
+                    </div>
+
+                    <div>
+                        <p>Bệnh nhân</p>
+                        <h3>@TenBenhNhan</h3>
+                    </div>
+                </div>
+
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon green">
+                        🩺
+                    </div>
+
+                    <div>
+                        <p>Bác sĩ</p>
+                        <h3>@TenBacSi</h3>
+                    </div>
+                </div>
+
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon orange">
+                        💊
+                    </div>
+
+                    <div>
+                        <p>Số dòng thuốc</p>
+                        <h3>@PrescriptionRows.Count</h3>
+                    </div>
+                </div>
+
+                <div class="doctor-stat-card">
+                    <div class="doctor-stat-icon purple">
+                        💰
+                    </div>
+
+                    <div>
+                        <p>Tổng tiền dự kiến</p>
+                        <h3>@TongTienText</h3>
+                    </div>
+                </div>
+            </section>
+
+            <section class="doctor-prescription-card">
+                <div class="doctor-section-head">
+                    <div>
+                        <h2>Thông tin đơn thuốc</h2>
+
+                        <p>
+                            Đơn thuốc sau khi lưu sẽ ở trạng thái
+                            <strong>Chưa xuất</strong>
+                            để nhân viên kho/dược xử lý.
+                        </p>
+                    </div>
+
+                    <button class="mf-btn mf-btn-outline"
+                            @onclick="AddRow">
+                        + Thêm dòng thuốc
+                    </button>
+                </div>
+
+                <div class="doctor-form-grid">
+                    <div class="doctor-form-group">
+                        <label>Ngày kê đơn</label>
+
+                        <input class="doctor-form-control"
+                               type="datetime-local"
+                               value="@NgayKeDonValue"
+                               @onchange="OnNgayKeDonChanged" />
+                    </div>
+
+                    <div class="doctor-form-group">
+                        <label>Trạng thái</label>
+
+                        <input class="doctor-form-control"
+                               value="Chưa xuất"
+                               readonly />
+                    </div>
+
+                    <div class="doctor-form-group full">
+                        <label>Chẩn đoán</label>
+
+                        <textarea class="doctor-form-control"
+                                  placeholder="Chẩn đoán sẽ tự lấy từ ca khám, có thể sửa lại nếu cần..."
+                                  @bind="ChanDoan">
+                        </textarea>
+                    </div>
+
+                    <div class="doctor-form-group full">
+                        <label>Ghi chú đơn thuốc</label>
+
+                        <textarea class="doctor-form-control"
+                                  placeholder="Nhập ghi chú cho đơn thuốc..."
+                                  @bind="GhiChu">
+                        </textarea>
+                    </div>
+                </div>
+            </section>
+
+            <section class="doctor-prescription-card mt-16">
+                <div class="doctor-section-head">
+                    <div>
+                        <h2>Chi tiết thuốc</h2>
+
+                        <p>
+                            Chọn thuốc/thang thuốc, nhập số lượng
+                            và cách dùng.
+                        </p>
+                    </div>
+
+                    <button class="mf-btn mf-btn-outline"
+                            @onclick="AddRow">
+                        + Thêm dòng thuốc
+                    </button>
+                </div>
+
+                <div class="prescription-list">
+                    @foreach (
+                        PrescriptionRowModel row
+                        in PrescriptionRows)
+                    {
+                        <div class="prescription-row-card"
+                             @key="row">
+
+                            <div class="prescription-field medicine">
+                                <label>Thuốc/Thang thuốc</label>
+
+                                <select class="doctor-form-control"
+                                        value="@row.ThuocOid"
+                                        @onchange="
+                                        e => OnThuocChanged(
+                                            row,
+                                            e.Value
+                                        )">
+
+<option value="">
+                                        -- Chọn thuốc --
+                                    </option>
+
+                                    @foreach (
+                                        DanhMucThuoc thuoc
+                                        in DanhSachThuoc)
+                                    {
+                                        <option value="@thuoc.Oid">
+                                            @thuoc.TenThuoc
+                                        </option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="prescription-field stock">
+                                <label>Tồn</label>
+
+                                <span class="@GetStockClass(row)">
+                                    @GetTonText(row)
+                                </span>
+                            </div>
+
+                            <div class="prescription-field quantity">
+                                <label>Số lượng</label>
+
+                                <input class="doctor-form-control"
+                                       type="number"
+                                       min="1"
+                                       step="1"
+                                       @bind="row.SoLuong" />
+                            </div>
+
+                            <div class="prescription-field price">
+                                <label>Đơn giá</label>
+
+                                <input class="doctor-form-control"
+                                       type="number"
+                                       min="0"
+                                       step="1000"
+                                       @bind="row.DonGia" />
+                            </div>
+
+                            <div class="prescription-field money">
+                                <label>Thành tiền</label>
+
+                                <div class="prescription-money">
+                                    @FormatMoney(row.ThanhTien)
+                                </div>
+                            </div>
+
+                            <div class="prescription-field usage">
+                                <label>Cách dùng</label>
+
+                                <input class="doctor-form-control"
+                                       placeholder="VD: Sắc uống ngày 1 thang..."
+                                       @bind="row.LieuDung" />
+                            </div>
+
+                            <div class="prescription-field action">
+                                <label>&nbsp;</label>
+
+                                <button class="doctor-table-btn danger"
+                                        @onclick="
+                                        () => RemoveRow(row)">
+Xóa
+</button>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                @if (!PrescriptionRows.Any())
+                {
+                    <div class="mf-empty">
+                        Chưa có dòng thuốc.
+                        Bấm “+ Thêm dòng thuốc” để kê thuốc.
+                    </div>
+                }
+            </section>
+        }
+    </main>
+</div>
+
+@code {
+    [Parameter]
+    public int CaKhamOid { get; set; }
+
+    private IObjectSpace objectSpace;
+    private Cakham CaKham;
+
+    private string CurrentUserName = "Bác sĩ";
+
+    private string Message = "";
+
+    private string MessageClass =
+        "mf-alert mf-alert-success";
+
+    private List<DanhMucThuoc> DanhSachThuoc =
+        new();
+
+    private List<PrescriptionRowModel>
+        PrescriptionRows = new();
+
+    private DateTime NgayKeDon = DateTime.Now;
+
+    private string ChanDoan = "";
+
+    private string GhiChu = "";
+
+    private string TenBenhNhan =>
+        CaKham?.BenhNhan?.HoTen
+        ?? "Chưa chọn bệnh nhân";
+
+    private string TenBacSi =>
+        CaKham?.Bacsi?.HoTen
+        ?? "Chưa chọn bác sĩ";
+
+    private string NgayKeDonValue =>
+        NgayKeDon.ToString("yyyy-MM-ddTHH:mm");
+
+    private decimal TongTien =>
+        PrescriptionRows.Sum(
+            x => x.ThanhTien
+        );
+
+    private string TongTienText =>
+        FormatMoney(TongTien);
+
+    protected override async Task OnInitializedAsync()
+    {
+        objectSpace =
+            ObjectSpaceFactory.CreateObjectSpace(
+                typeof(DonThuoc)
+            );
+
+        var authState =
+            await AuthenticationStateProvider
+                .GetAuthenticationStateAsync();
+
+        CurrentUserName =
+            authState.User?.Identity?.Name
+            ?? "Bác sĩ";
+
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        if (objectSpace == null)
+        {
+            return;
+        }
+
+        objectSpace.Refresh();
+
+        CaKham =
+            objectSpace.GetObjectByKey<Cakham>(
+                CaKhamOid
+            );
+
+        if (CaKham == null)
+        {
+            MessageClass =
+                "mf-alert mf-alert-danger";
+
+            Message =
+                $"Không tìm thấy ca khám có mã "
+                + $"{CaKhamOid}.";
+
+            return;
+        }
+
+        DanhSachThuoc =
+            objectSpace.GetObjects<DanhMucThuoc>()
+                .Where(x => x.SuDung)
+                .OrderBy(x => x.TenThuoc)
+                .ToList();
+
+        ChanDoan =
+            TaoChanDoanTuCaKham();
+
+        if (!PrescriptionRows.Any())
+        {
+            AddRow();
+        }
+    }
+
+    private string TaoChanDoanTuCaKham()
+    {
+        if (CaKham == null)
+        {
+            return "";
+        }
+
+        var parts = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(
+                CaKham.Amduong))
+        {
+            parts.Add(
+                $"Âm/Dương: {CaKham.Amduong}"
+            );
+        }
+
+        if (!string.IsNullOrWhiteSpace(
+                CaKham.Huthuc))
+        {
+            parts.Add(
+                $"Hư/Thực: {CaKham.Huthuc}"
+            );
+        }
+
+        if (!string.IsNullOrWhiteSpace(
+                CaKham.Khihuyet))
+        {
+            parts.Add(
+                $"Khí/Huyết: {CaKham.Khihuyet}"
+            );
+        }
+
+        if (!string.IsNullOrWhiteSpace(
+                CaKham.Benhchung))
+        {
+            parts.Add(
+                $"Bệnh chứng: {CaKham.Benhchung}"
+            );
+        }
+
+        return string.Join(
+            Environment.NewLine,
+            parts
+        );
+    }
+
+    private void OnNgayKeDonChanged(
+        ChangeEventArgs e)
+    {
+        string value =
+            e.Value?.ToString() ?? "";
+
+        if (DateTime.TryParse(
+                value,
+                out DateTime result))
+        {
+            NgayKeDon = result;
+        }
+    }
+
+    private void AddRow()
+    {
+        PrescriptionRows.Add(
+            new PrescriptionRowModel()
+        );
+    }
+
+    private void RemoveRow(
+        PrescriptionRowModel row)
+    {
+        if (row == null)
+        {
+            return;
+        }
+
+        PrescriptionRows.Remove(row);
+    }
+
+    private void OnThuocChanged(
+        PrescriptionRowModel row,
+        object rawValue)
+    {
+        if (row == null)
+        {
+            return;
+        }
+
+        string value =
+            rawValue?.ToString() ?? "";
+
+        row.ThuocOid = value;
+
+        if (!int.TryParse(
+                value,
+                out int thuocOid))
+        {
+            ResetRowThuoc(row);
+            return;
+        }
+
+        DanhMucThuoc thuoc =
+            DanhSachThuoc.FirstOrDefault(
+                x => x.Oid == thuocOid
+            );
+
+        if (thuoc == null)
+        {
+            ResetRowThuoc(row);
+            return;
+        }
+
+        row.TenThuoc =
+            thuoc.TenThuoc;
+
+        row.DonGia =
+            thuoc.GiaBan;
+
+        row.SoLuongTon =
+            thuoc.SoLuongTon;
+
+        row.DonViTinhText =
+            thuoc.DonViTinh?.TenDvt ?? "";
+    }
+
+    private void ResetRowThuoc(
+        PrescriptionRowModel row)
+    {
+        row.TenThuoc = "";
+        row.DonGia = 0;
+        row.SoLuongTon = 0;
+        row.DonViTinhText = "";
+    }
+
+    private bool ValidateForm()
+    {
+        Message = "";
+
+        if (CaKham == null)
+        {
+            MessageClass =
+                "mf-alert mf-alert-danger";
+
+            Message =
+                "Không tìm thấy ca khám để kê đơn.";
+
+            return false;
+        }
+
+        if (CaKham.BenhNhan == null)
+        {
+            MessageClass =
+                "mf-alert mf-alert-danger";
+
+            Message =
+                "Ca khám chưa có bệnh nhân. "
+                + "Vui lòng quay lại ca khám, "
+                + "chọn bệnh nhân và lưu thông tin.";
+
+            return false;
+        }
+
+        if (!PrescriptionRows.Any())
+        {
+            MessageClass =
+                "mf-alert mf-alert-danger";
+
+            Message =
+                "Vui lòng thêm ít nhất một dòng thuốc.";
+
+            return false;
+        }
+
+        foreach (
+            PrescriptionRowModel row
+            in PrescriptionRows)
+        {
+            if (!int.TryParse(
+                    row.ThuocOid,
+                    out int thuocOid)
+                || thuocOid <= 0)
+            {
+                MessageClass =
+                    "mf-alert mf-alert-danger";
+
+                Message =
+                    "Vui lòng chọn thuốc/thang thuốc "
+                    + "cho tất cả các dòng.";
+
+                return false;
+            }
+
+            DanhMucThuoc thuoc =
+                DanhSachThuoc.FirstOrDefault(
+                    x => x.Oid == thuocOid
+                );
+
+            if (thuoc == null)
+            {
+                MessageClass =
+                    "mf-alert mf-alert-danger";
+
+                Message =
+                    "Có thuốc/thang thuốc không tồn tại "
+                    + "hoặc đã ngừng sử dụng.";
+
+                return false;
+            }
+
+            if (row.SoLuong <= 0)
+            {
+                MessageClass =
+                    "mf-alert mf-alert-danger";
+
+                Message =
+                    $"Số lượng của "
+                    + $"'{thuoc.TenThuoc}' "
+                    + "phải lớn hơn 0.";
+
+                return false;
+            }
+
+            if (row.DonGia < 0)
+            {
+                MessageClass =
+                    "mf-alert mf-alert-danger";
+
+                Message =
+                    $"Đơn giá của "
+                    + $"'{thuoc.TenThuoc}' "
+                    + "không được nhỏ hơn 0.";
+
+                return false;
+            }
+        }
+
+        foreach (
+            var group
+            in PrescriptionRows.GroupBy(
+                x => int.Parse(x.ThuocOid)
+            ))
+        {
+            DanhMucThuoc thuoc =
+                DanhSachThuoc.FirstOrDefault(
+                    x => x.Oid == group.Key
+                );
+
+            if (thuoc == null)
+            {
+                continue;
+            }
+
+            decimal tongSoLuong =
+                group.Sum(x => x.SoLuong);
+
+            if (tongSoLuong >
+                thuoc.SoLuongTon)
+            {
+                string donVi =
+                    thuoc.DonViTinh?.TenDvt
+                    ?? "";
+
+                MessageClass =
+                    "mf-alert mf-alert-danger";
+
+                Message =
+                    $"Thuốc '{thuoc.TenThuoc}' "
+                    + "không đủ tồn kho. "
+                    + $"Cần {tongSoLuong:n0} "
+                    + $"{donVi}, hiện còn "
+                    + $"{thuoc.SoLuongTon:n0} "
+                    + $"{donVi}.";
+
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void SavePrescription()
+    {
+        try
+        {
+            objectSpace.Refresh();
+
+            CaKham =
+                objectSpace.GetObjectByKey<Cakham>(
+                    CaKhamOid
+                );
+
+            if (!ValidateForm())
+            {
+                return;
+            }
+
+            DonThuoc donThuoc =
+                objectSpace.CreateObject<DonThuoc>();
+
+            donThuoc.Ca = CaKham;
+
+            donThuoc.BenhNhan =
+                CaKham.BenhNhan;
+
+            donThuoc.BacSi =
+                CaKham.Bacsi;
+
+            donThuoc.NgayKeDon =
+                NgayKeDon;
+
+            donThuoc.TrangThai =
+                TrangThaiDonThuoc.ChuaXuat;
+
+            donThuoc.ChanDoan =
+                ChanDoan;
+
+            donThuoc.GhiChu =
+                GhiChu;
+
+            foreach (
+                PrescriptionRowModel row
+                in PrescriptionRows)
+            {
+                int thuocOid =
+                    int.Parse(row.ThuocOid);
+
+                DanhMucThuoc thuoc =
+                    objectSpace
+                        .GetObjectByKey<DanhMucThuoc>(
+                            thuocOid
+                        );
+
+                if (thuoc == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Không tìm thấy thuốc có mã "
+                        + $"{thuocOid}."
+                    );
+                }
+
+                ChiTietDonThuoc chiTiet =
+                    objectSpace
+                        .CreateObject<ChiTietDonThuoc>();
+
+                chiTiet.DonThuoc =
+                    donThuoc;
+
+                chiTiet.Thuoc =
+                    thuoc;
+
+                chiTiet.SoLuong =
+                    row.SoLuong;
+
+                chiTiet.DonGia =
+                    row.DonGia;
+
+                chiTiet.DonViTinh =
+                    thuoc.DonViTinh;
+
+                chiTiet.LieuDung =
+                    row.LieuDung;
+
+                chiTiet.GhiChu =
+                    row.GhiChu;
+            }
+
+            donThuoc.CapNhatTongTien();
+
+            objectSpace.CommitChanges();
+
+            Navigation.NavigateTo(
+                $"/doctor/exams/{CaKham.Oid}"
+            );
+        }
+        catch (Exception ex)
+        {
+            try
+            {
+                objectSpace?.Rollback();
+            }
+            catch
+            {
+                // Giữ lại lỗi gốc.
+            }
+
+            MessageClass =
+                "mf-alert mf-alert-danger";
+
+            Message =
+                "Lỗi khi lưu đơn thuốc: "
+                + ex.Message;
+        }
+    }
+
+    private string GetTonText(
+        PrescriptionRowModel row)
+    {
+        if (row == null
+            || string.IsNullOrWhiteSpace(
+                row.ThuocOid))
+        {
+            return "--";
+        }
+
+        return
+            $"{row.SoLuongTon:n0} "
+            + $"{row.DonViTinhText}";
+    }
+
+    private string GetStockClass(
+        PrescriptionRowModel row)
+    {
+        if (row == null
+            || string.IsNullOrWhiteSpace(
+                row.ThuocOid))
+        {
+            return "doctor-status neutral";
+        }
+
+        if (row.SoLuongTon <= 0)
+        {
+            return "doctor-status danger";
+        }
+
+        if (row.SoLuong >
+            row.SoLuongTon)
+        {
+            return "doctor-status warning";
+        }
+
+        return "doctor-status success";
+    }
+
+    private string FormatMoney(decimal value)
+    {
+        return value.ToString("n0");
+    }
+
+    private string GetInitials(string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+        {
+            return "BS";
+        }
+
+        string[] parts =
+            fullName.Split(
+                ' ',
+                StringSplitOptions.RemoveEmptyEntries
+            );
+
+        if (parts.Length == 1)
+        {
+            return parts[0]
+                .Substring(
+                    0,
+                    Math.Min(2, parts[0].Length)
+                )
+                .ToUpperInvariant();
+        }
+
+        return
+            $"{parts[0][0]}{parts[^1][0]}"
+                .ToUpperInvariant();
+    }
+
+    private void BackToExam()
+    {
+        Navigation.NavigateTo(
+            $"/doctor/exams/{CaKhamOid}"
+        );
+    }
+
+    private void GoPatients()
+    {
+        Navigation.NavigateTo(
+            "/doctor/patients"
+        );
+    }
+
+    private void GoExams()
+    {
+        Navigation.NavigateTo(
+            "/doctor/exams"
+        );
+    }
+
+    private void GoDiseases()
+    {
+        Navigation.NavigateTo(
+            "/doctor/diseases"
+        );
+    }
+
+    private void GoAcupoints()
+    {
+        Navigation.NavigateTo(
+            "/doctor/acupoints"
+        );
+    }
+
+    private void GoDiagnosisRules()
+    {
+        Navigation.NavigateTo(
+            "/doctor/diagnosis-rules"
+        );
+    }
+
+    private void GoTreatmentPlans()
+    {
+        Navigation.NavigateTo(
+            "/doctor/treatment-plans"
+        );
+    }
+
+    public void Dispose()
+    {
+        objectSpace?.Dispose();
+    }
+
+    private class PrescriptionRowModel
+    {
+        public string ThuocOid { get; set; } = "";
+
+        public string TenThuoc { get; set; } = "";
+
+        public decimal SoLuong { get; set; } = 1;
+
+        public decimal DonGia { get; set; } = 0;
+
+        public decimal SoLuongTon { get; set; } = 0;
+
+        public string DonViTinhText { get; set; } = "";
+
+        public string LieuDung { get; set; } = "";
+
+        public string GhiChu { get; set; } = "";
+
+        public decimal ThanhTien =>
+            SoLuong * DonGia;
+    }
+}

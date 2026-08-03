@@ -1,0 +1,60 @@
+root = true
+
+[*.cs]
+
+# Member does not access instance data and can be marked as static
+dotnet_diagnostic.CA1822.severity = none
+
+# Prefer TryGetValue over ContainsKey + indexer
+dotnet_diagnostic.CA1854.severity = none
+
+# Prefer static readonly fields for repeated constant array arguments
+dotnet_diagnostic.CA1861.severity = none
+
+# Member name can be simplified
+dotnet_diagnostic.IDE0002.severity = none
+dotnet_diagnostic.IDE0003.severity = none
+
+# Unnecessary using directive
+dotnet_diagnostic.IDE0005.severity = none
+dotnet_diagnostic.CS8019.severity = none
+
+# Object initialization can be simplified
+dotnet_diagnostic.IDE0017.severity = none
+
+# Collection initialization can be simplified
+dotnet_diagnostic.IDE0028.severity = none
+
+# Null check can be simplified
+dotnet_diagnostic.IDE0029.severity = none
+dotnet_diagnostic.IDE0030.severity = none
+dotnet_diagnostic.IDE0270.severity = none
+
+# Variable declaration can be deconstructed
+dotnet_diagnostic.IDE0042.severity = none
+
+# Use compound assignment
+dotnet_diagnostic.IDE0054.severity = none
+
+# Remove unused parameter
+dotnet_diagnostic.IDE0060.severity = none
+
+# Use switch expression
+dotnet_diagnostic.IDE0066.severity = none
+
+# new expression can be simplified
+dotnet_diagnostic.IDE0090.severity = none
+
+# Use primary constructor
+dotnet_diagnostic.IDE0290.severity = none
+
+# Collection expression suggestions
+dotnet_diagnostic.IDE0300.severity = none
+dotnet_diagnostic.IDE0301.severity = none
+dotnet_diagnostic.IDE0302.severity = none
+dotnet_diagnostic.IDE0303.severity = none
+dotnet_diagnostic.IDE0304.severity = none
+dotnet_diagnostic.IDE0305.severity = none
+
+# ASP.NET header property suggestions
+dotnet_diagnostic.ASP0019.severity = none
